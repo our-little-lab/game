@@ -89,6 +89,18 @@
   }
 
   @media (prefers-reduced-motion: reduce){ .jumper{ animation:none; } }
+
+  /* calc-tunnel art (maze/calc card) */
+  .cave-mini{ position:absolute; inset:0; border-radius:16px;
+    background:radial-gradient(circle at 50% 40%, #4a3323 0%, #1c130c 100%); }
+  .portal-mini{ position:absolute; bottom:14px; width:34px; height:34px; border-radius:50%;
+    border:4px solid #FFD98A; background:rgba(255,217,138,0.18);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Baloo 2', sans-serif; font-weight:800; font-size:13px; color:#FFFDF7; }
+  .portal-mini.l{ left:14px; } .portal-mini.r{ right:14px; }
+  .sign-mini{ position:absolute; top:10px; left:50%; transform:translateX(-50%);
+    background:#FFFDF7; color:#1B4332; font-family:'Baloo 2', sans-serif; font-weight:800;
+    font-size:12px; padding:4px 8px; border-radius:8px; white-space:nowrap; }
 </style>
 </head>
 <body>
@@ -121,6 +133,18 @@
       </div>
       <h2>もぐらジャンプ</h2>
       <p>タップでジャンプ!<br>アイテムを取って とおくまで走ろう</p>
+      <span class="play-tag">▶ あそぶ</span>
+    </a>
+
+    <a class="card" href="mogura-meiro.html">
+      <div class="art">
+        <div class="cave-mini"></div>
+        <div class="sign-mini">5+3=?</div>
+        <div class="portal-mini l">8</div>
+        <div class="portal-mini r">6</div>
+      </div>
+      <h2>けいさんトンネル</h2>
+      <p>分かれ道でけいさん問題!<br>正しい方をえらんで進もう</p>
       <span class="play-tag">▶ あそぶ</span>
     </a>
   </div>
