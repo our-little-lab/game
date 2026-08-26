@@ -61,6 +61,7 @@
   }
   .badge .label{font-size:11px; font-weight:800; color:#8a8a7a; letter-spacing:.05em;}
   .badge .value{font-family:'Baloo 2', sans-serif; font-size:26px; font-weight:800; color:var(--ink); line-height:1.1;}
+  .badge .value.negative{ color:var(--accent-dark); }
   .badge.time .value{transition:color .2s;}
   .badge.time.low .value{color:var(--accent-dark);}
   .mute-btn{
@@ -160,23 +161,47 @@
   }
   .brow{ display:none; }
 
+  @keyframes shockShake{
+    0%,100%{ transform:translate(-50%,0); filter:brightness(1); }
+    15%{ transform:translate(calc(-50% - 4px),0); filter:brightness(2.2); }
+    30%{ transform:translate(calc(-50% + 4px),0); filter:brightness(1); }
+    45%{ transform:translate(calc(-50% - 3px),0); filter:brightness(2.2); }
+    60%{ transform:translate(calc(-50% + 3px),0); filter:brightness(1); }
+    75%{ transform:translate(calc(-50% - 2px),0); filter:brightness(2); }
+    100%{ transform:translate(-50%,0); filter:brightness(1); }
+  }
+  .hole.hit .mole.bad{ animation:shockShake .4s ease; }
+  .bolt{
+    position:absolute; width:12px; height:20px; pointer-events:none;
+    background:#FFE45C;
+    clip-path:polygon(40% 0%,100% 0%,45% 45%,80% 45%,20% 100%,35% 50%,0% 50%);
+    animation:boltFlash .4s ease forwards;
+    z-index:6;
+  }
+  @keyframes boltFlash{
+    0%{ opacity:1; transform:scale(.5) rotate(var(--rot,0deg)); }
+    50%{ opacity:1; transform:scale(1.15) rotate(var(--rot,0deg)); }
+    100%{ opacity:0; transform:scale(1) rotate(var(--rot,0deg)); }
+  }
+
   .pop-score{
-    position:absolute; top:0; left:50%;
+    position:absolute; top:0; left:0;
     transform:translate(-50%,0);
     font-family:'Baloo 2', sans-serif;
-    font-weight:800; font-size:22px;
+    font-weight:800; font-size:24px;
     color:var(--accent-dark);
-    text-shadow:0 2px 0 #fff;
+    text-shadow:0 2px 0 #fff, 0 0 6px #fff;
     pointer-events:none;
-    animation:floatUp .6s ease forwards;
-    z-index:5;
+    animation:floatUp .7s ease forwards;
+    z-index:25;
+    white-space:nowrap;
   }
   .pop-score.golden{ color:#B8860B; }
   .pop-score.bad{ color:#B71C1C; }
   @keyframes floatUp{
     0%{ opacity:1; transform:translate(-50%,0) scale(0.8); }
-    30%{ transform:translate(-50%,-18px) scale(1.15); }
-    100%{ opacity:0; transform:translate(-50%,-46px) scale(1); }
+    30%{ transform:translate(-50%,-24px) scale(1.15); }
+    100%{ opacity:0; transform:translate(-50%,-62px) scale(1); }
   }
 
   /* ---------- Overlays ---------- */
@@ -318,7 +343,8 @@
 <!-- 結果画面 -->
 <div class="overlay hidden" id="resultOverlay">
   <div class="panel">
-    <h1>おわり!</h1>
+    <h1 id="resultTitle">おわり!</h1>
+    <p id="endingMsg" class="hidden" style="background:#F3F0E6; border-radius:14px; padding:10px 14px; font-size:13px; color:#4a5a4c; font-weight:700; line-height:1.7; margin:0 0 16px;"></p>
     <div class="result-score" id="finalScore">0</div>
     <div class="new-best hidden" id="newBestLabel">✨ さいこうきろく! ✨</div>
     <div class="result-best" id="bestLine">さいこう: 0</div>
@@ -336,10 +362,10 @@
   const BEST_KEY_PREFIX = 'mogura_best_score_v2_';
 
   const DIFFS = {
-    easy:    { label:'🟢 イージー', color:'#5FBF6B', maxConcurrent:1, upMin:1000, upMax:1600, spawnMin:700,  spawnMax:1000, golden:0.20, bad:0    },
-    normal:  { label:'🔵 ノーマル', color:'#4A90D9', maxConcurrent:2, upMin:750,  upMax:1300, spawnMin:480,  spawnMax:860,  golden:0.15, bad:0    },
-    hard:    { label:'🟠 ハード',   color:'#E8934A', maxConcurrent:2, upMin:550,  upMax:950,  spawnMin:380,  spawnMax:650,  golden:0.12, bad:0.15 },
-    expert:  { label:'🔴 エキスパート', color:'#D6453F', maxConcurrent:3, upMin:420,  upMax:750,  spawnMin:260,  spawnMax:480,  golden:0.10, bad:0.25 },
+    easy:    { label:'🟢 イージー', color:'#5FBF6B', maxConcurrent:1, upMin:1000, upMax:1600, spawnMin:700,  spawnMax:1000, golden:0.20, bad:0,    badPoints:0 },
+    normal:  { label:'🔵 ノーマル', color:'#4A90D9', maxConcurrent:2, upMin:750,  upMax:1300, spawnMin:480,  spawnMax:860,  golden:0.15, bad:0,    badPoints:0 },
+    hard:    { label:'🟠 ハード',   color:'#E8934A', maxConcurrent:2, upMin:550,  upMax:950,  spawnMin:380,  spawnMax:650,  golden:0.12, bad:0.15, badPoints:-2 },
+    expert:  { label:'🔴 エキスパート', color:'#D6453F', maxConcurrent:3, upMin:420,  upMax:750,  spawnMin:260,  spawnMax:480,  golden:0.10, bad:0.25, badPoints:-5 },
   };
   let currentDiff = 'normal';
 
@@ -356,6 +382,9 @@
   const newBestLabel = document.getElementById('newBestLabel');
   const modeBadge = document.getElementById('modeBadge');
   const changeDiffLink = document.getElementById('changeDiffLink');
+  const field = document.querySelector('.field');
+  const resultTitle = document.getElementById('resultTitle');
+  const endingMsg = document.getElementById('endingMsg');
 
   let holes = [];
   let score = 0;
@@ -365,6 +394,8 @@
   let spawnTimer = null;
   let tickTimer = null;
   let lastTick = 0;
+  let badAppeared = 0;
+  let badTapped = 0;
 
   // ---- build holes ----
   for (let i = 0; i < HOLE_COUNT; i++) {
@@ -404,7 +435,7 @@
   }
   function sfxHit(){ beep(520, 0.12, 'triangle', 0.22); }
   function sfxGolden(){ beep(660, 0.09,'sine',0.2); setTimeout(()=>beep(880,0.14,'sine',0.2), 70); }
-  function sfxBad(){ beep(220, 0.1,'sawtooth',0.2); setTimeout(()=>beep(140,0.18,'sawtooth',0.2), 80); }
+  function sfxShock(){ beep(900, 0.04,'sawtooth',0.25); setTimeout(()=>beep(150,0.15,'sawtooth',0.22), 40); }
   function sfxStart(){ beep(392,0.1,'sine',0.15); setTimeout(()=>beep(523,0.12,'sine',0.15),100); }
   function sfxEnd(){ beep(330,0.15,'sine',0.18); setTimeout(()=>beep(220,0.25,'sine',0.18),150); }
 
@@ -433,6 +464,7 @@
     hole.dataset.state = 'up';
     hole.dataset.variant = variant;
     hole.classList.add('up');
+    if (variant === 'bad') badAppeared++;
     const moleEl = hole.querySelector('.mole');
     moleEl.classList.toggle('golden', variant === 'golden');
     moleEl.classList.toggle('bad', variant === 'bad');
@@ -442,22 +474,58 @@
     }, upTime);
   }
 
+  function showPop(hole, text, cls){
+    const holeRect = hole.getBoundingClientRect();
+    const fieldRect = field.getBoundingClientRect();
+    const pop = document.createElement('div');
+    pop.className = 'pop-score' + (cls ? ' ' + cls : '');
+    pop.textContent = text;
+    pop.style.left = (holeRect.left - fieldRect.left + holeRect.width / 2) + 'px';
+    pop.style.top = (holeRect.top - fieldRect.top) + 'px';
+    field.appendChild(pop);
+    setTimeout(() => pop.remove(), 700);
+  }
+
+  function showShock(hole){
+    const holeRect = hole.getBoundingClientRect();
+    const fieldRect = field.getBoundingClientRect();
+    const cx = holeRect.left - fieldRect.left + holeRect.width / 2;
+    const cy = holeRect.top - fieldRect.top + holeRect.height * 0.35;
+    for (let i = 0; i < 3; i++) {
+      const bolt = document.createElement('div');
+      bolt.className = 'bolt';
+      const angle = -50 + i * 50 + (Math.random() * 16 - 8);
+      const dist = 22 + Math.random() * 8;
+      bolt.style.left = (cx + Math.cos(angle * Math.PI/180) * dist - 6) + 'px';
+      bolt.style.top = (cy - Math.sin(angle * Math.PI/180) * dist - 10) + 'px';
+      bolt.style.setProperty('--rot', (angle + 90) + 'deg');
+      field.appendChild(bolt);
+      setTimeout(() => bolt.remove(), 420);
+    }
+  }
+
   function onTap(hole){
     if (!running) return;
     if (hole.dataset.state !== 'up') return;
     const variant = hole.dataset.variant;
-    const points = variant === 'golden' ? 3 : (variant === 'bad' ? -2 : 1);
-    score = Math.max(0, score + points);
+    const cfg = DIFFS[currentDiff];
+    const points = variant === 'golden' ? 3 : (variant === 'bad' ? cfg.badPoints : 1);
+    score += points; // negative totals are allowed
     scoreVal.textContent = score;
+    scoreVal.classList.toggle('negative', score < 0);
 
-    const pop = document.createElement('div');
-    pop.className = 'pop-score' + (variant === 'golden' ? ' golden' : (variant === 'bad' ? ' bad' : ''));
-    pop.textContent = (points > 0 ? '+' : '') + points;
-    hole.appendChild(pop);
-    setTimeout(() => pop.remove(), 620);
+    showPop(hole, (points > 0 ? '+' : '') + points, variant === 'golden' ? 'golden' : (variant === 'bad' ? 'bad' : ''));
 
     hole.classList.add('hit');
-    if (variant === 'golden') sfxGolden(); else if (variant === 'bad') sfxBad(); else sfxHit();
+    if (variant === 'golden') {
+      sfxGolden();
+    } else if (variant === 'bad') {
+      badTapped++;
+      sfxShock();
+      showShock(hole);
+    } else {
+      sfxHit();
+    }
     clearTimeout(hole._hideTimer);
     setTimeout(() => resetHole(hole), 140);
   }
@@ -500,6 +568,9 @@
 
     score = 0;
     scoreVal.textContent = '0';
+    scoreVal.classList.remove('negative');
+    badAppeared = 0;
+    badTapped = 0;
     timeLeft = ROUND_MS;
     timeVal.textContent = Math.ceil(ROUND_MS/1000);
     timeBadge.classList.remove('low');
@@ -518,7 +589,26 @@
     clearTimeout(spawnTimer);
     cancelAnimationFrame(tickTimer);
     holes.forEach(resetHole);
-    sfxEnd();
+
+    let ending = 'normal';
+    if (badAppeared > 0 && badTapped === 0) ending = 'true';
+    else if (badAppeared > 0 && badTapped === badAppeared) ending = 'hidden';
+
+    if (ending === 'true') {
+      sfxGolden();
+      resultTitle.textContent = '🌿 みんなともだち';
+      endingMsg.textContent = 'じつは たたいた もぐらたちは、かくれんぼで かくれていた ともだちだったんだ。にせもの(あかい もぐら)には だまされず、ほんもの だけを ぜんいん みつけてあげたね!';
+      endingMsg.classList.remove('hidden');
+    } else if (ending === 'hidden') {
+      sfxGolden();
+      resultTitle.textContent = '👑 わんぱくキング';
+      endingMsg.textContent = 'にせものだって わかってて、ぜんぶ わざと からかっちゃった!? きみは もう こわいものなし!';
+      endingMsg.classList.remove('hidden');
+    } else {
+      sfxEnd();
+      resultTitle.textContent = 'おわり!';
+      endingMsg.classList.add('hidden');
+    }
 
     const bestKey = BEST_KEY_PREFIX + currentDiff;
     const best = Number(localStorage.getItem(bestKey) || 0);
@@ -526,6 +616,7 @@
     if (isNewBest) localStorage.setItem(bestKey, String(score));
 
     finalScore.textContent = score;
+    finalScore.style.color = score < 0 ? 'var(--accent-dark)' : '';
     bestLine.textContent = DIFFS[currentDiff].label + ' さいこう: ' + (isNewBest ? score : best);
     newBestLabel.classList.toggle('hidden', !isNewBest);
     resultOverlay.classList.remove('hidden');
