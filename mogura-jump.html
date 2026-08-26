@@ -17,8 +17,8 @@
     --gold:#FFC93C; --ink:#1B4332; --card:#FFFDF7;
     --beam:#7B61FF; --beam-dark:#5A43D6;
   }
-  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
-  html,body{margin:0; height:100%; overscroll-behavior:none;}
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;}
+  html,body{margin:0; height:100%; overscroll-behavior:none; touch-action:manipulation;}
   body{
     font-family:'Nunito', sans-serif;
     background:linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 100%);
@@ -166,9 +166,10 @@
   let obsTimer, nextObsIn, itemTimer, nextItemIn;
   let djCharges, beamCharges, extraJumpUsed;
   let particles;
+  let pendingGameOver, gameOverDelay;
 
   function resetWorld(){
-    mole = { x: 90, y: GROUND_Y, vy: 0, r: 20, grounded: true, squash: 0 };
+    mole = { x: 90, y: GROUND_Y, vy: 0, r: 20, grounded: true, squash: 0, rot:0 };
     obstacles = []; items = []; particles = [];
     hills = [ {x:0}, {x:W*0.6} ];
     clouds = [ {x:60,y:40,s:1}, {x:260,y:70,s:0.7}, {x:400,y:30,s:1.2} ];
@@ -176,6 +177,7 @@
     obsTimer = 0; nextObsIn = 1300;
     itemTimer = 0; nextItemIn = 5500;
     djCharges = 0; beamCharges = 0; extraJumpUsed = false;
+    pendingGameOver = false; gameOverDelay = 0;
     scoreVal.textContent = '0';
     heartsVal.textContent = '❤️❤️❤️';
   }
@@ -232,7 +234,7 @@
     if (st >= 4 && beamCharges < MAX_BEAM_CHARGES) options.push('beam');
     if (!options.length) return;
     const type = options[Math.floor(Math.random()*options.length)];
-    items.push({ type, x:W+20, y:GROUND_Y-30, r:14, bob:Math.random()*10, taken:false });
+    items.push({ type, x:W+20, y:GROUND_Y-30, r:14, bob:Math.random()*10, taken:false, sparkleTimer:0 });
   }
 
   function doJump(){
@@ -251,8 +253,17 @@
     for (let i=0;i<n;i++){
       particles.push({ x,y,color,
         vx:(Math.random()-0.5)*220, vy:-100-Math.random()*160,
-        life: 400+Math.random()*200, age:0 });
+        life: 400+Math.random()*200, age:0, star:false });
     }
+  }
+
+  function spawnSparkle(x,y,color){
+    particles.push({
+      x: x + (Math.random()-0.5)*30,
+      y: y + (Math.random()-0.5)*30,
+      color, vx:(Math.random()-0.5)*20, vy:-30-Math.random()*30,
+      life: 350+Math.random()*250, age:0, star:true, noGravity:true
+    });
   }
 
   function loseLife(){
@@ -261,10 +272,27 @@
     sfxHit();
     heartsVal.textContent = '❤️'.repeat(Math.max(0,lives)) + '🖤'.repeat(3-Math.max(0,lives));
     spawnParticles(mole.x, mole.y - mole.r, '#FF6B6B', 8);
-    if (lives <= 0) { endGame(); }
+    if (lives <= 0) {
+      pendingGameOver = true;
+      gameOverDelay = 1300;
+      mole.rot = 0;
+      for (let i=0;i<6;i++) spawnSparkle(mole.x, mole.y - mole.r*2, '#FFE08A');
+    }
   }
 
   function update(dt){
+    if (pendingGameOver) {
+      gameOverDelay -= dt;
+      mole.rot = Math.min(1, mole.rot + dt/500);
+      for (const p of particles) {
+        p.age += dt; p.x += p.vx*(dt/1000); p.y += p.vy*(dt/1000);
+        if (!p.noGravity) p.vy += 900*(dt/1000);
+      }
+      particles = particles.filter(p => p.age < p.life);
+      if (gameOverDelay <= 0) { finishGameOver(); }
+      return;
+    }
+
     speed = Math.min(SPEED_MAX, SPEED_START + score*9);
     if (invuln > 0) invuln -= dt;
 
@@ -304,13 +332,23 @@
     }
     obstacles = obstacles.filter(o => o.x + o.w > -20 && (o.kind !== 'enemy' || o.alive !== false || o.x > -60));
 
-    for (const it of items) { it.x -= dx; it.bob += dt; }
+    for (const it of items) {
+      it.x -= dx; it.bob += dt;
+      it.sparkleTimer += dt;
+      if (it.sparkleTimer > 130) {
+        it.sparkleTimer = 0;
+        spawnSparkle(it.x, it.y, it.type === 'dj' ? '#B9E3FF' : '#E4D6FF');
+      }
+    }
     items = items.filter(it => it.x > -30 && !it.taken);
 
     for (const h of hills) { h.x -= dx*0.35; if (h.x < -W*0.6) h.x += W*1.2; }
     for (const c of clouds) { c.x -= dx*0.15; if (c.x < -60) c.x = W+60; }
 
-    for (const p of particles) { p.age += dt; p.x += p.vx*(dt/1000); p.y += p.vy*(dt/1000); p.vy += 900*(dt/1000); }
+    for (const p of particles) {
+      p.age += dt; p.x += p.vx*(dt/1000); p.y += p.vy*(dt/1000);
+      if (!p.noGravity) p.vy += 900*(dt/1000);
+    }
     particles = particles.filter(p => p.age < p.life);
 
     // item pickup
@@ -445,6 +483,18 @@
   }
   function drawItem(it){
     const y = it.y + Math.sin(it.bob/160)*6;
+    const pulse = 0.75 + 0.25*Math.sin(it.bob/110);
+    const glowColor = it.type === 'dj' ? 'rgba(126,200,255,ALPHA)' : 'rgba(183,156,255,ALPHA)';
+    // soft glowing halo behind the item, distinct from any solid-colored enemy
+    ctx.save();
+    const haloR = 24 * pulse;
+    const halo = ctx.createRadialGradient(it.x,y,0,it.x,y,haloR);
+    halo.addColorStop(0, glowColor.replace('ALPHA','0.55'));
+    halo.addColorStop(1, glowColor.replace('ALPHA','0'));
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(it.x,y,haloR,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+
     if (it.type === 'dj') {
       ctx.fillStyle = '#7EC8FF';
       ctx.save(); ctx.translate(it.x, y); ctx.rotate(it.bob/300);
@@ -462,20 +512,37 @@
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.arc(it.x,y,13,0,Math.PI*2); ctx.fill();
     }
+    // little twinkle mark on top
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('✨', it.x + 12, y - 12);
   }
   function drawParticles(){
     for (const p of particles) {
       const a = 1 - p.age/p.life;
       ctx.globalAlpha = Math.max(0,a);
       ctx.fillStyle = p.color;
-      ctx.beginPath(); ctx.arc(p.x,p.y,4,0,Math.PI*2); ctx.fill();
+      if (p.star) {
+        const s = 4 + 2*Math.sin(p.age/60);
+        ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.age/200);
+        ctx.beginPath();
+        for (let i=0;i<4;i++){
+          const ang = (Math.PI/2)*i;
+          ctx.lineTo(Math.cos(ang)*s, Math.sin(ang)*s);
+          ctx.lineTo(Math.cos(ang+Math.PI/4)*s*0.35, Math.sin(ang+Math.PI/4)*s*0.35);
+        }
+        ctx.closePath(); ctx.fill(); ctx.restore();
+      } else {
+        ctx.beginPath(); ctx.arc(p.x,p.y,4,0,Math.PI*2); ctx.fill();
+      }
     }
     ctx.globalAlpha = 1;
   }
   function drawMole(){
-    if (invuln > 0 && Math.floor(invuln/90)%2===0) return; // blink while invulnerable
+    if (!pendingGameOver && invuln > 0 && Math.floor(invuln/90)%2===0) return; // blink while invulnerable
     const squashY = 1 - mole.squash*0.35, squashX = 1 + mole.squash*0.25;
     ctx.save(); ctx.translate(mole.x, mole.y); ctx.scale(squashX, squashY);
+    if (pendingGameOver) ctx.rotate(mole.rot * Math.PI * 0.42);
     if (mole.grounded) {
       ctx.fillStyle = '#8B5F49';
       const t = (performance.now()/90) % (Math.PI*2);
@@ -537,8 +604,9 @@
     sfxStart();
     raf = requestAnimationFrame(loop);
   }
-  function endGame(){
+  function finishGameOver(){
     running = false; cancelAnimationFrame(raf);
+    pendingGameOver = false;
     const best = Number(localStorage.getItem(BEST_KEY) || 0);
     const isNewBest = score > best;
     if (isNewBest) localStorage.setItem(BEST_KEY, String(score));
@@ -554,7 +622,16 @@
 
   startBtn.addEventListener('click', () => { ensureAudio(); startGame(); });
   retryBtn.addEventListener('click', () => { ensureAudio(); startGame(); });
-  document.querySelector('.stage').addEventListener('pointerdown', () => { if (running) doJump(); });
+
+  // Tap anywhere on the page (including blank margins outside the game card) to jump.
+  // Buttons/links keep their own click behavior and are excluded here.
+  document.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button, a')) return;
+    if (running) {
+      e.preventDefault(); // stops double-tap text-selection / zoom highlight on mobile
+      doJump();
+    }
+  }, { passive: false });
 })();
 </script>
 </body>
