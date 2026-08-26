@@ -223,7 +223,7 @@
     background:rgba(20,50,30,0.55);
     display:flex; align-items:center; justify-content:center;
     padding:20px;
-    z-index:20;
+    z-index:40;
   }
   .overlay.hidden{display:none;}
   .panel{
@@ -355,6 +355,13 @@
 </div>
 
 <!-- 結果画面 -->
+<!-- カウントダウン画面 -->
+<div class="overlay hidden" id="countdownOverlay">
+  <div class="panel" style="padding:44px 30px;">
+    <div id="countdownText" style="font-family:'Baloo 2', sans-serif; font-size:38px; color:var(--ink);">よーい...</div>
+  </div>
+</div>
+
 <div class="overlay hidden" id="resultOverlay">
   <div class="panel">
     <h1 id="resultTitle">おわり!</h1>
@@ -400,6 +407,9 @@
   const field = document.querySelector('.field');
   const resultTitle = document.getElementById('resultTitle');
   const endingMsg = document.getElementById('endingMsg');
+  const countdownOverlay = document.getElementById('countdownOverlay');
+  const countdownText = document.getElementById('countdownText');
+  let countdownTimer1 = null, countdownTimer2 = null;
 
   let holes = [];
   let score = 0;
@@ -411,6 +421,8 @@
   let lastTick = 0;
   let badAppeared = 0;
   let badTapped = 0;
+  let goodAppeared = 0;
+  let goodTapped = 0;
 
   // ---- build holes ----
   for (let i = 0; i < HOLE_COUNT; i++) {
@@ -451,6 +463,7 @@
   function sfxHit(){ beep(520, 0.12, 'triangle', 0.22); }
   function sfxGolden(){ beep(660, 0.09,'sine',0.2); setTimeout(()=>beep(880,0.14,'sine',0.2), 70); }
   function sfxShock(){ beep(900, 0.04,'sawtooth',0.25); setTimeout(()=>beep(150,0.15,'sawtooth',0.22), 40); }
+  function sfxCount(){ beep(440, 0.12, 'sine', 0.15); }
   function sfxStart(){ beep(392,0.1,'sine',0.15); setTimeout(()=>beep(523,0.12,'sine',0.15),100); }
   function sfxEnd(){ beep(330,0.15,'sine',0.18); setTimeout(()=>beep(220,0.25,'sine',0.18),150); }
 
@@ -487,6 +500,7 @@
   }
 
   function popMole(hole){
+    if (!running) return;
     if (hole.dataset.state !== 'empty') return;
     const cfg = DIFFS[currentDiff];
     const r = Math.random();
@@ -498,6 +512,7 @@
     hole.dataset.variant = variant;
     hole.classList.add('up');
     if (variant === 'bad') { badAppeared++; showWarn(hole); }
+    else { goodAppeared++; }
     const moleEl = hole.querySelector('.mole');
     moleEl.classList.toggle('golden', variant === 'golden');
     moleEl.classList.toggle('bad', variant === 'bad');
@@ -551,12 +566,14 @@
 
     hole.classList.add('hit');
     if (variant === 'golden') {
+      goodTapped++;
       sfxGolden();
     } else if (variant === 'bad') {
       badTapped++;
       sfxShock();
       showShock(hole);
     } else {
+      goodTapped++;
       sfxHit();
     }
     clearTimeout(hole._hideTimer);
@@ -564,6 +581,7 @@
   }
 
   function spawnLoop(){
+    if (!running) return;
     const cfg = DIFFS[currentDiff];
     const activeCount = holes.filter(h => h.dataset.state === 'up').length;
     if (activeCount < cfg.maxConcurrent && Math.random() < 0.85) {
@@ -592,7 +610,7 @@
     tickTimer = requestAnimationFrame(tick);
   }
 
-  function startGame(diff){
+  function prepRound(diff){
     if (diff) currentDiff = diff;
     const cfg = DIFFS[currentDiff];
     modeBadge.textContent = cfg.label;
@@ -604,17 +622,39 @@
     scoreVal.classList.remove('negative');
     badAppeared = 0;
     badTapped = 0;
+    goodAppeared = 0;
+    goodTapped = 0;
     timeLeft = ROUND_MS;
     timeVal.textContent = Math.ceil(ROUND_MS/1000);
     timeBadge.classList.remove('low');
     holes.forEach(resetHole);
+  }
+
+  function beginRound(){
     running = true;
     lastTick = 0;
-    startOverlay.classList.add('hidden');
-    resultOverlay.classList.add('hidden');
-    sfxStart();
     spawnLoop();
     tickTimer = requestAnimationFrame(tick);
+  }
+
+  function startGame(diff){
+    // "よーい...スタート!" の余韻を挟んでから本編を開始する
+    prepRound(diff);
+    startOverlay.classList.add('hidden');
+    resultOverlay.classList.add('hidden');
+    countdownOverlay.classList.remove('hidden');
+    countdownText.textContent = 'よーい...';
+    sfxCount();
+    clearTimeout(countdownTimer1);
+    clearTimeout(countdownTimer2);
+    countdownTimer1 = setTimeout(() => {
+      countdownText.textContent = 'スタート!';
+      sfxStart();
+      countdownTimer2 = setTimeout(() => {
+        countdownOverlay.classList.add('hidden');
+        beginRound();
+      }, 480);
+    }, 700);
   }
 
   function endGame(){
@@ -623,9 +663,13 @@
     cancelAnimationFrame(tickTimer);
     holes.forEach(resetHole);
 
+    // トゥルー/裏エンディングは「なにもしない」だけでは達成できないよう、
+    // 良いもぐらを実際に全部捕まえていること(goodTapped===goodAppeared)を条件にする
     let ending = 'normal';
-    if (badAppeared > 0 && badTapped === 0) ending = 'true';
-    else if (badAppeared > 0 && badTapped === badAppeared) ending = 'hidden';
+    const caughtAllGood = goodAppeared > 0 && goodTapped === goodAppeared;
+    const zappedAllBad = badAppeared > 0 && badTapped === badAppeared;
+    if (badAppeared > 0 && badTapped === 0 && caughtAllGood) ending = 'true';
+    else if (zappedAllBad && goodTapped === 0 && goodAppeared > 0) ending = 'hidden';
 
     if (ending === 'true') {
       sfxGolden();
