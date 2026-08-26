@@ -24,8 +24,8 @@
     --ink:#1B4332;
     --card:#FFFDF7;
   }
-  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
-  html,body{margin:0; height:100%; overscroll-behavior:none;}
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;}
+  html,body{margin:0; height:100%; overscroll-behavior:none; touch-action:manipulation;}
   body{
     font-family:'Nunito', sans-serif;
     background:linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 55%, var(--grass-2) 55%, var(--grass-1) 100%);
@@ -141,6 +141,25 @@
     pointer-events:none;
   }
 
+  /* ---------- Bad mole (danger, don't tap!) ---------- */
+  .mole.bad .mole-body{ background:#D6453F; }
+  .mole.bad .mole-belly{ background:#F2B4AE; }
+  .mole.bad .eye{ background:#1a0d0a; }
+  .mole.bad::before{
+    content:'';
+    position:absolute; top:-16%; left:12%; width:76%; height:24%;
+    background:#2B2118;
+    clip-path:polygon(0% 100%,8% 0%,16% 100%,24% 0%,32% 100%,40% 0%,48% 100%,56% 0%,64% 100%,72% 0%,80% 100%,88% 0%,96% 100%,100% 100%);
+  }
+  .mole.bad::after{
+    content:'⚠️';
+    position:absolute; top:-46%; left:50%;
+    transform:translateX(-50%);
+    font-size:15px;
+    filter:drop-shadow(0 1px 0 #fff);
+  }
+  .brow{ display:none; }
+
   .pop-score{
     position:absolute; top:0; left:50%;
     transform:translate(-50%,0);
@@ -153,6 +172,7 @@
     z-index:5;
   }
   .pop-score.golden{ color:#B8860B; }
+  .pop-score.bad{ color:#B71C1C; }
   @keyframes floatUp{
     0%{ opacity:1; transform:translate(-50%,0) scale(0.8); }
     30%{ transform:translate(-50%,-18px) scale(1.15); }
@@ -232,11 +252,27 @@
   }
   .home-link{ position:fixed; top:12px; left:12px; z-index:30; background:var(--card); border-radius:14px;
     padding:8px 14px; font-weight:800; color:var(--ink); text-decoration:none; box-shadow:0 4px 0 rgba(0,0,0,0.12); font-size:14px; }
+  .mode-badge{ position:fixed; top:12px; right:12px; z-index:30; border-radius:14px;
+    padding:8px 14px; font-weight:800; color:#fff; box-shadow:0 4px 0 rgba(0,0,0,0.12); font-size:13px; }
+
+  .diff-label{ font-family:'Baloo 2', sans-serif; font-size:15px; color:var(--ink); margin:2px 0 10px; }
+  .diff-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .diff-btn{
+    font-family:'Baloo 2', sans-serif; font-size:16px; font-weight:800; color:#fff;
+    border:none; border-radius:14px; padding:12px 8px; cursor:pointer;
+  }
+  .diff-btn:active{ transform:translateY(3px); }
+  .diff-btn.easy{ background:#5FBF6B; box-shadow:0 5px 0 #3D9A48; }
+  .diff-btn.normal{ background:#4A90D9; box-shadow:0 5px 0 #2E6FB3; }
+  .diff-btn.hard{ background:#E8934A; box-shadow:0 5px 0 #C06E28; }
+  .diff-btn.expert{ background:#D6453F; box-shadow:0 5px 0 #A62A25; }
+  .diff-btn small{ display:block; font-family:'Nunito', sans-serif; font-size:10px; font-weight:700; opacity:.9; margin-top:2px; }
 </style>
 </head>
 <body>
 
 <a class="home-link" href="index.html">🏠 メニュー</a>
+<div class="mode-badge" id="modeBadge" style="display:none;"></div>
 
 <div class="stage">
   <div class="hud">
@@ -269,7 +305,13 @@
     </div>
     <h1>もぐらたたき</h1>
     <p>でてきたもぐらを<br>ゆびでタップしよう!</p>
-    <button class="big-btn" id="startBtn">はじめる</button>
+    <div class="diff-label">なんいどを えらんでね</div>
+    <div class="diff-grid">
+      <button class="diff-btn easy" data-diff="easy">🟢 イージー<small>ゆっくり・やさしい</small></button>
+      <button class="diff-btn normal" data-diff="normal">🔵 ノーマル<small>ふつう</small></button>
+      <button class="diff-btn hard" data-diff="hard">🟠 ハード<small>はやい・ワナあり</small></button>
+      <button class="diff-btn expert" data-diff="expert">🔴 エキスパート<small>おにモード</small></button>
+    </div>
   </div>
 </div>
 
@@ -281,6 +323,9 @@
     <div class="new-best hidden" id="newBestLabel">✨ さいこうきろく! ✨</div>
     <div class="result-best" id="bestLine">さいこう: 0</div>
     <button class="big-btn" id="retryBtn">もういちど</button>
+    <div style="margin-top:12px;">
+      <a href="#" id="changeDiffLink" style="font-weight:800; color:#8a8a7a; font-size:13px; text-decoration:underline;">なんいどをかえる</a>
+    </div>
   </div>
 </div>
 
@@ -288,9 +333,15 @@
 (() => {
   const COLS = 3, ROWS = 3, HOLE_COUNT = COLS * ROWS;
   const ROUND_MS = 30000;
-  const MAX_CONCURRENT = 2;
-  const GOLDEN_CHANCE = 0.15;
-  const BEST_KEY = 'mogura_best_score_v1';
+  const BEST_KEY_PREFIX = 'mogura_best_score_v2_';
+
+  const DIFFS = {
+    easy:    { label:'🟢 イージー', color:'#5FBF6B', maxConcurrent:1, upMin:1000, upMax:1600, spawnMin:700,  spawnMax:1000, golden:0.20, bad:0    },
+    normal:  { label:'🔵 ノーマル', color:'#4A90D9', maxConcurrent:2, upMin:750,  upMax:1300, spawnMin:480,  spawnMax:860,  golden:0.15, bad:0    },
+    hard:    { label:'🟠 ハード',   color:'#E8934A', maxConcurrent:2, upMin:550,  upMax:950,  spawnMin:380,  spawnMax:650,  golden:0.12, bad:0.15 },
+    expert:  { label:'🔴 エキスパート', color:'#D6453F', maxConcurrent:3, upMin:420,  upMax:750,  spawnMin:260,  spawnMax:480,  golden:0.10, bad:0.25 },
+  };
+  let currentDiff = 'normal';
 
   const grid = document.getElementById('grid');
   const scoreVal = document.getElementById('scoreVal');
@@ -298,12 +349,13 @@
   const timeBadge = document.getElementById('timeBadge');
   const startOverlay = document.getElementById('startOverlay');
   const resultOverlay = document.getElementById('resultOverlay');
-  const startBtn = document.getElementById('startBtn');
   const retryBtn = document.getElementById('retryBtn');
   const muteBtn = document.getElementById('muteBtn');
   const finalScore = document.getElementById('finalScore');
   const bestLine = document.getElementById('bestLine');
   const newBestLabel = document.getElementById('newBestLabel');
+  const modeBadge = document.getElementById('modeBadge');
+  const changeDiffLink = document.getElementById('changeDiffLink');
 
   let holes = [];
   let score = 0;
@@ -328,7 +380,7 @@
       </div>`;
     hole.dataset.state = 'empty';
     hole.dataset.golden = 'false';
-    hole.addEventListener('pointerdown', () => onTap(hole));
+    hole.addEventListener('pointerdown', (e) => { e.preventDefault(); onTap(hole); });
     grid.appendChild(hole);
     holes.push(hole);
   }
@@ -352,6 +404,7 @@
   }
   function sfxHit(){ beep(520, 0.12, 'triangle', 0.22); }
   function sfxGolden(){ beep(660, 0.09,'sine',0.2); setTimeout(()=>beep(880,0.14,'sine',0.2), 70); }
+  function sfxBad(){ beep(220, 0.1,'sawtooth',0.2); setTimeout(()=>beep(140,0.18,'sawtooth',0.2), 80); }
   function sfxStart(){ beep(392,0.1,'sine',0.15); setTimeout(()=>beep(523,0.12,'sine',0.15),100); }
   function sfxEnd(){ beep(330,0.15,'sine',0.18); setTimeout(()=>beep(220,0.25,'sine',0.18),150); }
 
@@ -363,20 +416,27 @@
   // ---- game flow ----
   function resetHole(hole){
     hole.dataset.state = 'empty';
-    hole.dataset.golden = 'false';
+    hole.dataset.variant = 'normal';
     hole.classList.remove('up','hit');
-    hole.querySelector('.mole').classList.remove('golden');
+    hole.querySelector('.mole').classList.remove('golden','bad');
     clearTimeout(hole._hideTimer);
   }
 
   function popMole(hole){
     if (hole.dataset.state !== 'empty') return;
-    const golden = Math.random() < GOLDEN_CHANCE;
+    const cfg = DIFFS[currentDiff];
+    const r = Math.random();
+    let variant = 'normal';
+    if (r < cfg.bad) variant = 'bad';
+    else if (r < cfg.bad + cfg.golden) variant = 'golden';
+
     hole.dataset.state = 'up';
-    hole.dataset.golden = golden ? 'true' : 'false';
+    hole.dataset.variant = variant;
     hole.classList.add('up');
-    hole.querySelector('.mole').classList.toggle('golden', golden);
-    const upTime = 750 + Math.random() * 550;
+    const moleEl = hole.querySelector('.mole');
+    moleEl.classList.toggle('golden', variant === 'golden');
+    moleEl.classList.toggle('bad', variant === 'bad');
+    const upTime = cfg.upMin + Math.random() * (cfg.upMax - cfg.upMin);
     hole._hideTimer = setTimeout(() => {
       if (hole.dataset.state === 'up') resetHole(hole);
     }, upTime);
@@ -385,33 +445,34 @@
   function onTap(hole){
     if (!running) return;
     if (hole.dataset.state !== 'up') return;
-    const golden = hole.dataset.golden === 'true';
-    const points = golden ? 3 : 1;
-    score += points;
+    const variant = hole.dataset.variant;
+    const points = variant === 'golden' ? 3 : (variant === 'bad' ? -2 : 1);
+    score = Math.max(0, score + points);
     scoreVal.textContent = score;
 
     const pop = document.createElement('div');
-    pop.className = 'pop-score' + (golden ? ' golden' : '');
-    pop.textContent = '+' + points;
+    pop.className = 'pop-score' + (variant === 'golden' ? ' golden' : (variant === 'bad' ? ' bad' : ''));
+    pop.textContent = (points > 0 ? '+' : '') + points;
     hole.appendChild(pop);
     setTimeout(() => pop.remove(), 620);
 
     hole.classList.add('hit');
-    golden ? sfxGolden() : sfxHit();
+    if (variant === 'golden') sfxGolden(); else if (variant === 'bad') sfxBad(); else sfxHit();
     clearTimeout(hole._hideTimer);
     setTimeout(() => resetHole(hole), 140);
   }
 
   function spawnLoop(){
+    const cfg = DIFFS[currentDiff];
     const activeCount = holes.filter(h => h.dataset.state === 'up').length;
-    if (activeCount < MAX_CONCURRENT && Math.random() < 0.85) {
+    if (activeCount < cfg.maxConcurrent && Math.random() < 0.85) {
       const empties = holes.filter(h => h.dataset.state === 'empty');
       if (empties.length) {
         const h = empties[Math.floor(Math.random() * empties.length)];
         popMole(h);
       }
     }
-    spawnTimer = setTimeout(spawnLoop, 480 + Math.random() * 380);
+    spawnTimer = setTimeout(spawnLoop, cfg.spawnMin + Math.random() * (cfg.spawnMax - cfg.spawnMin));
   }
 
   function tick(ts){
@@ -430,7 +491,13 @@
     tickTimer = requestAnimationFrame(tick);
   }
 
-  function startGame(){
+  function startGame(diff){
+    if (diff) currentDiff = diff;
+    const cfg = DIFFS[currentDiff];
+    modeBadge.textContent = cfg.label;
+    modeBadge.style.background = cfg.color;
+    modeBadge.style.display = 'block';
+
     score = 0;
     scoreVal.textContent = '0';
     timeLeft = ROUND_MS;
@@ -453,18 +520,26 @@
     holes.forEach(resetHole);
     sfxEnd();
 
-    const best = Number(localStorage.getItem(BEST_KEY) || 0);
+    const bestKey = BEST_KEY_PREFIX + currentDiff;
+    const best = Number(localStorage.getItem(bestKey) || 0);
     const isNewBest = score > best;
-    if (isNewBest) localStorage.setItem(BEST_KEY, String(score));
+    if (isNewBest) localStorage.setItem(bestKey, String(score));
 
     finalScore.textContent = score;
-    bestLine.textContent = 'さいこう: ' + (isNewBest ? score : best);
+    bestLine.textContent = DIFFS[currentDiff].label + ' さいこう: ' + (isNewBest ? score : best);
     newBestLabel.classList.toggle('hidden', !isNewBest);
     resultOverlay.classList.remove('hidden');
   }
 
-  startBtn.addEventListener('click', () => { ensureAudio(); startGame(); });
+  document.querySelectorAll('.diff-btn').forEach(btn => {
+    btn.addEventListener('click', () => { ensureAudio(); startGame(btn.dataset.diff); });
+  });
   retryBtn.addEventListener('click', () => { ensureAudio(); startGame(); });
+  changeDiffLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    resultOverlay.classList.add('hidden');
+    startOverlay.classList.remove('hidden');
+  });
 })();
 </script>
 </body>
