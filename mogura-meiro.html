@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>もぐらけいさんトンネル</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cave-1:#3B2A1E; --cave-2:#1E140D; --cave-glow:#FFD98A;
+    --accent:#FF6B6B; --accent-dark:#E25555;
+    --gold:#FFC93C; --ink:#1B4332; --card:#FFFDF7;
+    --green:#5FBF6B; --green-dark:#3D9A48;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;}
+  html,body{margin:0; height:100%; overscroll-behavior:none; touch-action:manipulation;}
+  body{
+    font-family:'Nunito', sans-serif;
+    background:radial-gradient(circle at 50% 30%, #4a3323 0%, #1c130c 100%);
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    overflow:hidden; touch-action:manipulation;
+  }
+  .stage{ width:min(480px, 96vw); padding:14px; }
+  .hud{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px; }
+  .badge{
+    background:var(--card); border-radius:16px; padding:7px 12px;
+    box-shadow:0 4px 0 rgba(0,0,0,0.25);
+    display:flex; flex-direction:column; align-items:center; min-width:64px;
+  }
+  .badge .label{ font-size:10px; font-weight:800; color:#8a8a7a; letter-spacing:.03em; }
+  .badge .value{ font-family:'Baloo 2', sans-serif; font-size:22px; font-weight:800; color:var(--ink); line-height:1.1; }
+  .mute-btn{
+    background:var(--card); border:none; border-radius:50%;
+    width:40px; height:40px; box-shadow:0 4px 0 rgba(0,0,0,0.25);
+    font-size:18px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:none;
+  }
+  .field{ position:relative; border-radius:24px; overflow:hidden;
+    box-shadow:0 10px 0 rgba(0,0,0,0.3), inset 0 0 0 4px rgba(255,255,255,0.12); line-height:0; }
+  canvas{ display:block; width:100%; height:auto; touch-action:manipulation; }
+
+  .overlay{ position:fixed; inset:0; background:rgba(10,6,3,0.6);
+    display:flex; align-items:center; justify-content:center; padding:20px; z-index:40; }
+  .overlay.hidden{ display:none; }
+  .panel{ background:var(--card); border-radius:26px; padding:30px 26px; text-align:center;
+    width:min(370px, 92vw); box-shadow:0 14px 0 rgba(0,0,0,0.3); max-height:90vh; overflow:auto; }
+  .panel h1{ font-family:'Baloo 2', sans-serif; font-size:28px; color:var(--ink); margin:0 0 6px; }
+  .panel p{ color:#5b6b5e; font-weight:700; margin:0 0 14px; line-height:1.55; font-size:14px; }
+  .howto{ text-align:left; background:#F3F0E6; border-radius:14px; padding:10px 14px; margin-bottom:16px; font-size:13px; color:#4a5a4c; font-weight:700; line-height:1.7; }
+  .howto b{ color:var(--ink); }
+  .big-btn{ font-family:'Baloo 2', sans-serif; font-size:22px; font-weight:800; color:#fff;
+    background:var(--accent); border:none; border-radius:18px; padding:14px 30px;
+    box-shadow:0 6px 0 var(--accent-dark); cursor:pointer; width:100%; }
+  .big-btn:active{ box-shadow:0 2px 0 var(--accent-dark); transform:translateY(4px); }
+  .result-score{ font-family:'Baloo 2', sans-serif; font-size:44px; color:var(--accent-dark); margin:4px 0 2px; }
+  .result-best{ font-size:14px; color:#8a8a7a; font-weight:800; margin-bottom:18px; }
+  .new-best{ color:var(--gold); font-family:'Baloo 2', sans-serif; font-size:16px; margin-bottom:8px; }
+
+  .diff-label{ font-family:'Baloo 2', sans-serif; font-size:15px; color:var(--ink); margin:2px 0 10px; }
+  .diff-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .diff-btn{
+    font-family:'Baloo 2', sans-serif; font-size:16px; font-weight:800; color:#fff;
+    border:none; border-radius:14px; padding:12px 8px; cursor:pointer;
+  }
+  .diff-btn:active{ transform:translateY(3px); }
+  .diff-btn.easy{ background:#5FBF6B; box-shadow:0 5px 0 #3D9A48; }
+  .diff-btn.normal{ background:#4A90D9; box-shadow:0 5px 0 #2E6FB3; }
+  .diff-btn.hard{ background:#E8934A; box-shadow:0 5px 0 #C06E28; }
+  .diff-btn.expert{ background:#D6453F; box-shadow:0 5px 0 #A62A25; }
+  .diff-btn small{ display:block; font-family:'Nunito', sans-serif; font-size:10px; font-weight:700; opacity:.9; margin-top:2px; }
+
+  .home-link{ position:fixed; top:12px; left:12px; z-index:41; background:var(--card); border-radius:14px;
+    padding:8px 14px; font-weight:800; color:var(--ink); text-decoration:none; box-shadow:0 4px 0 rgba(0,0,0,0.25); font-size:14px; }
+  .mode-badge{ position:fixed; top:12px; right:12px; z-index:41; border-radius:14px;
+    padding:8px 14px; font-weight:800; color:#fff; box-shadow:0 4px 0 rgba(0,0,0,0.25); font-size:13px; }
+</style>
+</head>
+<body>
+
+<a class="home-link" href="index.html">🏠 メニュー</a>
+<div class="mode-badge" id="modeBadge" style="display:none;"></div>
+
+<div class="stage">
+  <div class="hud">
+    <div class="badge"><div class="label">せいかい</div><div class="value" id="correctVal">0/5</div></div>
+    <button class="mute-btn" id="muteBtn" aria-label="おとをけす">🔊</button>
+    <button class="mute-btn" id="restartBtn" aria-label="さいしょから やりなおす">🔄</button>
+    <div class="badge"><div class="label">さいこう</div><div class="value" id="bestVal">0/5</div></div>
+  </div>
+  <div class="field"><canvas id="game" width="480" height="320"></canvas></div>
+</div>
+
+<div class="overlay" id="startOverlay">
+  <div class="panel">
+    <h1>もぐらけいさん<br>トンネル</h1>
+    <div class="howto">
+      <div>👉 トンネルの分かれ道で <b>けいさん問題</b> が出るよ</div>
+      <div>👉 こたえが正しいほうの道を<b>タップ</b>して進もう</div>
+      <div>👉 まちがえても そのまま次の問題にすすむよ</div>
+      <div>👉 5問中なんもん正解できるかな?</div>
+    </div>
+    <div class="diff-label">なんいどを えらんでね</div>
+    <div class="diff-grid">
+      <button class="diff-btn easy" data-diff="easy">🟢 イージー<small>たしざん・~9</small></button>
+      <button class="diff-btn normal" data-diff="normal">🔵 ノーマル<small>たしざん・~29</small></button>
+      <button class="diff-btn hard" data-diff="hard">🟠 ハード<small>たし・ひき・~99</small></button>
+      <button class="diff-btn expert" data-diff="expert">🔴 エキスパート<small>四則2かい・~99</small></button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="countdownOverlay">
+  <div class="panel" style="padding:44px 30px;">
+    <div id="countdownText" style="font-family:'Baloo 2', sans-serif; font-size:38px; color:var(--ink);">よーい...</div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="resultOverlay">
+  <div class="panel">
+    <h1 id="resultTitle">おわり!</h1>
+    <div class="result-score" id="finalScore">0/5</div>
+    <div class="new-best hidden" id="newBestLabel">✨ さいこうきろく! ✨</div>
+    <div class="result-best" id="bestLine">さいこう: 0/5</div>
+    <button class="big-btn" id="retryBtn">もういちど</button>
+    <div style="margin-top:12px;">
+      <a href="#" id="changeDiffLink" style="font-weight:800; color:#8a8a7a; font-size:13px; text-decoration:underline;">なんいどをかえる</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const BEST_KEY_PREFIX = 'mogura_meiro_best_v1_';
+  const TOTAL_Q = 5;
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const field = document.querySelector('.field');
+
+  const correctVal = document.getElementById('correctVal');
+  const bestVal = document.getElementById('bestVal');
+  const modeBadge = document.getElementById('modeBadge');
+  const startOverlay = document.getElementById('startOverlay');
+  const countdownOverlay = document.getElementById('countdownOverlay');
+  const countdownText = document.getElementById('countdownText');
+  const resultOverlay = document.getElementById('resultOverlay');
+  const resultTitle = document.getElementById('resultTitle');
+  const finalScore = document.getElementById('finalScore');
+  const bestLine = document.getElementById('bestLine');
+  const newBestLabel = document.getElementById('newBestLabel');
+  const retryBtn = document.getElementById('retryBtn');
+  const changeDiffLink = document.getElementById('changeDiffLink');
+  const muteBtn = document.getElementById('muteBtn');
+  const restartBtn = document.getElementById('restartBtn');
+
+  let muted = false;
+
+  // ---------------- sound ----------------
+  let actx = null;
+  function ensureAudio(){ if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); }
+  function beep(freq, dur, type='sine', gain=0.18, delay=0){
+    if (muted) return;
+    ensureAudio();
+    const t0 = actx.currentTime + delay;
+    const osc = actx.createOscillator(); const g = actx.createGain();
+    osc.type = type; osc.frequency.setValueAtTime(freq, t0);
+    g.gain.setValueAtTime(gain, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    osc.connect(g).connect(actx.destination); osc.start(t0); osc.stop(t0 + dur);
+  }
+  const sfxCount = () => beep(440, 0.12, 'sine', 0.15);
+  const sfxStart = () => { beep(392,0.1,'sine',0.15); beep(523,0.12,'sine',0.15,0.1); };
+  const sfxCorrect = () => { beep(660,0.09,'sine',0.2); beep(880,0.14,'sine',0.2,0.09); };
+  const sfxWrong = () => { beep(220,0.12,'sawtooth',0.18); beep(150,0.18,'sawtooth',0.16,0.09); };
+  const sfxWalk = () => beep(300, 0.03, 'triangle', 0.05);
+  const sfxDone = () => { beep(523,0.12,'sine',0.18); beep(659,0.12,'sine',0.18,0.12); beep(784,0.18,'sine',0.18,0.24); };
+
+  muteBtn.addEventListener('click', () => { muted = !muted; muteBtn.textContent = muted ? '🔇' : '🔊'; });
+
+  // ---------------- math question generation ----------------
+  function randInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; }
+
+  function evalTwoOp(a, op1, b, op2, c){
+    let nums = [a,b,c], ops = [op1, op2];
+    let i = 0;
+    while (i < ops.length) {
+      if (ops[i] === '×' || ops[i] === '÷') {
+        const left = nums[i], right = nums[i+1];
+        if (right === 0) return null;
+        if (ops[i] === '÷' && left % right !== 0) return null;
+        const val = ops[i] === '×' ? left * right : left / right;
+        if (val < 0) return null;
+        nums.splice(i, 2, val);
+        ops.splice(i, 1);
+      } else i++;
+    }
+    let result = nums[0];
+    for (let j = 0; j < ops.length; j++) {
+      result = ops[j] === '+' ? result + nums[j+1] : result - nums[j+1];
+      if (result < 0) return null;
+    }
+    return result;
+  }
+
+  function genEasy(){
+    for (let t=0;t<200;t++){
+      const a = randInt(1,8), b = randInt(1,8);
+      const sum = a+b;
+      if (sum < 10) return { text:`${a} + ${b}`, correct: sum };
+    }
+    return { text:'1 + 1', correct:2 };
+  }
+  function genNormal(){
+    for (let t=0;t<200;t++){
+      const a = randInt(1,25), b = randInt(1,25);
+      const sum = a+b;
+      if (sum < 30) return { text:`${a} + ${b}`, correct: sum };
+    }
+    return { text:'10 + 10', correct:20 };
+  }
+  function genHard(){
+    for (let t=0;t<300;t++){
+      const op = Math.random()<0.5 ? '+' : '-';
+      let a = randInt(1,90), b = randInt(1,90);
+      let result;
+      if (op === '+') { result = a+b; }
+      else { if (b>a) [a,b]=[b,a]; result = a-b; }
+      if (result >= 0 && result < 100) return { text:`${a} ${op} ${b}`, correct: result };
+    }
+    return { text:'50 + 10', correct:60 };
+  }
+  function genExpert(){
+    const OPS = ['+','-','×','÷'];
+    for (let t=0;t<500;t++){
+      const op1 = OPS[randInt(0,3)], op2 = OPS[randInt(0,3)];
+      const smallRange = () => randInt(2,9);
+      const bigRange = () => randInt(1,60);
+      const a = (op1==='×'||op1==='÷') ? smallRange() : bigRange();
+      const b = ((op1==='×'||op1==='÷') || (op2==='×'||op2==='÷')) ? smallRange() : bigRange();
+      const c = (op2==='×'||op2==='÷') ? smallRange() : bigRange();
+      const result = evalTwoOp(a, op1, b, op2, c);
+      if (result !== null && result < 100 && result >= 0 && Number.isInteger(result)) {
+        return { text:`${a} ${op1} ${b} ${op2} ${c}`, correct: result };
+      }
+    }
+    return { text:'5 × 8 + 30', correct:70 };
+  }
+
+  const DIFFS = {
+    easy:   { label:'🟢 イージー', color:'#5FBF6B', gen: genEasy },
+    normal: { label:'🔵 ノーマル', color:'#4A90D9', gen: genNormal },
+    hard:   { label:'🟠 ハード',   color:'#E8934A', gen: genHard },
+    expert: { label:'🔴 エキスパート', color:'#D6453F', gen: genExpert },
+  };
+  let currentDiff = 'normal';
+
+  function makeQuestion(){
+    const q = DIFFS[currentDiff].gen();
+    let wrong;
+    for (let t=0;t<20;t++){
+      const delta = randInt(1, Math.max(2, Math.round(q.correct*0.3)+2));
+      wrong = q.correct + (Math.random()<0.5 ? -delta : delta);
+      if (wrong >= 0 && wrong !== q.correct) break;
+    }
+    if (wrong === undefined || wrong < 0 || wrong === q.correct) wrong = q.correct + 3;
+    const correctOnLeft = Math.random() < 0.5;
+    return {
+      text: q.text + ' = ?',
+      correct: q.correct,
+      left: correctOnLeft ? q.correct : wrong,
+      right: correctOnLeft ? wrong : q.correct,
+      correctSide: correctOnLeft ? 'left' : 'right'
+    };
+  }
+
+  // ---------------- game state ----------------
+  let phase = 'idle'; // idle | walk | fork | feedback | finished
+  let phaseTime = 0;
+  let roundIndex = 0;
+  let correctCount = 0;
+  let question = null;
+  let pickedSide = null;
+  let tunnelDepth = 0;
+  let raf = null, last = 0;
+  let countdownTimer1 = null, countdownTimer2 = null;
+
+  function resetRun(diff){
+    if (diff) currentDiff = diff;
+    const cfg = DIFFS[currentDiff];
+    modeBadge.textContent = cfg.label;
+    modeBadge.style.background = cfg.color;
+    modeBadge.style.display = 'block';
+    roundIndex = 0;
+    correctCount = 0;
+    correctVal.textContent = '0/' + TOTAL_Q;
+    bestVal.textContent = (localStorage.getItem(BEST_KEY_PREFIX+currentDiff) || '0') + '/' + TOTAL_Q;
+    phase = 'idle';
+    question = null;
+    pickedSide = null;
+    tunnelDepth = 0;
+  }
+
+  function startGame(diff){
+    resetRun(diff);
+    startOverlay.classList.add('hidden');
+    resultOverlay.classList.add('hidden');
+    countdownOverlay.classList.remove('hidden');
+    countdownText.textContent = 'よーい...';
+    sfxCount();
+    clearTimeout(countdownTimer1); clearTimeout(countdownTimer2);
+    countdownTimer1 = setTimeout(() => {
+      countdownText.textContent = 'スタート!';
+      sfxStart();
+      countdownTimer2 = setTimeout(() => {
+        countdownOverlay.classList.add('hidden');
+        beginRun();
+      }, 480);
+    }, 700);
+  }
+
+  function beginRun(){
+    phase = 'walk'; phaseTime = 0;
+    last = 0;
+    raf = requestAnimationFrame(loop);
+  }
+
+  function nextRound(){
+    if (roundIndex >= TOTAL_Q) { finishRun(); return; }
+    question = makeQuestion();
+    pickedSide = null;
+    phase = 'walk';
+    phaseTime = 0;
+  }
+
+  function finishRun(){
+    phase = 'finished';
+    cancelAnimationFrame(raf);
+    sfxDone();
+    setTimeout(() => showResult(), 500); // ちょっとした余韻をもたせてから結果表示
+  }
+
+  function showResult(){
+    let tier = 'また ちょうせんしてね!';
+    if (correctCount === TOTAL_Q) tier = 'パーフェクト! すごい!!';
+    else if (correctCount >= TOTAL_Q - 1) tier = 'すごい! よくできました!';
+    else if (correctCount >= Math.ceil(TOTAL_Q/2)) tier = 'よくがんばったね!';
+    resultTitle.textContent = 'けっか';
+    finalScore.textContent = correctCount + '/' + TOTAL_Q;
+
+    const bestKey = BEST_KEY_PREFIX + currentDiff;
+    const best = Number(localStorage.getItem(bestKey) || 0);
+    const isNewBest = correctCount > best;
+    if (isNewBest) localStorage.setItem(bestKey, String(correctCount));
+    bestLine.textContent = DIFFS[currentDiff].label + ' さいこう: ' + (isNewBest ? correctCount : best) + '/' + TOTAL_Q + '　(' + tier + ')';
+    newBestLabel.classList.toggle('hidden', !isNewBest);
+    bestVal.textContent = (isNewBest ? correctCount : best) + '/' + TOTAL_Q;
+    resultOverlay.classList.remove('hidden');
+  }
+
+  function choose(side){
+    if (phase !== 'fork') return;
+    pickedSide = side;
+    const isCorrect = side === question.correctSide;
+    if (isCorrect) { correctCount++; sfxCorrect(); } else { sfxWrong(); }
+    correctVal.textContent = correctCount + '/' + TOTAL_Q;
+    phase = 'feedback';
+    phaseTime = 0;
+    roundIndex++;
+    setTimeout(() => { if (phase === 'feedback') nextRound(); }, 900);
+  }
+
+  // ---------------- update / render ----------------
+  function update(dt){
+    phaseTime += dt;
+    tunnelDepth += dt * 0.001;
+    if (Math.floor(tunnelDepth*3) !== Math.floor((tunnelDepth - dt*0.001)*3)) sfxWalk();
+
+    if (phase === 'walk' && phaseTime > 1100) {
+      phase = 'fork'; phaseTime = 0;
+    }
+  }
+
+  function drawTunnel(t, forking, pickedSideNow){
+    // dirt cave background
+    const bg = ctx.createRadialGradient(W/2, H*0.38, 10, W/2, H*0.38, W*0.75);
+    bg.addColorStop(0, '#5b4028');
+    bg.addColorStop(0.6, '#2a1c11');
+    bg.addColorStop(1, '#140d08');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0,0,W,H);
+
+    const vpX = W/2, vpY = H*0.36;
+    const ringCount = 6;
+    for (let i = ringCount; i >= 0; i--) {
+      let depth = ((i - (t*3 % 1)) / ringCount);
+      depth = ((depth % 1) + 1) % 1; // 0 = far, 1 = near
+      const scale = 0.06 + depth*0.94;
+      const rw = (W*0.62) * scale, rh = (H*0.62) * scale;
+      const alpha = 0.15 + depth*0.5;
+      ctx.strokeStyle = `rgba(120,84,52,${alpha})`;
+      ctx.lineWidth = 3 + depth*4;
+      ctx.beginPath();
+      ctx.ellipse(vpX, vpY + rh*0.15, rw*0.5, rh*0.5, 0, 0, Math.PI*2);
+      ctx.stroke();
+    }
+    // warm glow at the vanishing point (end of tunnel)
+    const glow = ctx.createRadialGradient(vpX, vpY, 2, vpX, vpY, 46);
+    glow.addColorStop(0, 'rgba(255,217,138,0.55)');
+    glow.addColorStop(1, 'rgba(255,217,138,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(vpX, vpY, 46, 0, Math.PI*2); ctx.fill();
+
+    // floor dashes moving toward viewer
+    ctx.strokeStyle = 'rgba(255,217,138,0.35)';
+    ctx.lineWidth = 3;
+    for (let i=0;i<5;i++){
+      let depth = ((i - (t*3 % 1)) / 5);
+      depth = ((depth % 1) + 1) % 1;
+      const y = H*0.62 + depth*H*0.36;
+      const halfW = 6 + depth*40;
+      ctx.beginPath();
+      ctx.moveTo(vpX-halfW, y); ctx.lineTo(vpX+halfW, y);
+      ctx.globalAlpha = 0.2 + depth*0.5;
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    if (forking) {
+      // two glowing side portals to choose from
+      const leftX = W*0.24, rightX = W*0.76, py = H*0.72, pr = 58;
+      drawPortal(leftX, py, pr, question.left, pickedSideNow, 'left');
+      drawPortal(rightX, py, pr, question.right, pickedSideNow, 'right');
+
+      // question sign banner
+      const bw = Math.min(W*0.86, 60 + question.text.length*16), bh = 54;
+      const bx = vpX - bw/2, by = H*0.12;
+      ctx.fillStyle = '#6B4A2E';
+      roundRect(bx-4, by-4, bw+8, bh+8, 14); ctx.fill();
+      ctx.fillStyle = '#FFFDF7';
+      roundRect(bx, by, bw, bh, 12); ctx.fill();
+      ctx.fillStyle = '#1B4332';
+      ctx.font = 'bold 26px "Baloo 2", sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(question.text, vpX, by + bh/2 + 1);
+    }
+  }
+
+  function roundRect(x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+
+  function drawPortal(cx, cy, r, value, pickedSideNow, side){
+    let ringColor = '#FFD98A', fillInner = 'rgba(255,217,138,0.18)';
+    if (pickedSideNow) {
+      const isThisCorrect = side === question.correctSide;
+      if (side === pickedSideNow) {
+        ringColor = isThisCorrect ? '#5FBF6B' : '#E25555';
+        fillInner = isThisCorrect ? 'rgba(95,191,107,0.35)' : 'rgba(226,85,85,0.3)';
+      } else if (isThisCorrect) {
+        // reveal the correct one even if the player picked the other side
+        ringColor = '#5FBF6B';
+        fillInner = 'rgba(95,191,107,0.22)';
+      }
+    }
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.fillStyle = fillInner; ctx.fill();
+    ctx.lineWidth = 6; ctx.strokeStyle = ringColor; ctx.stroke();
+    ctx.fillStyle = '#FFFDF7';
+    ctx.font = 'bold 30px "Baloo 2", sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(value), cx, cy+2);
+    ctx.restore();
+  }
+
+  function render(){
+    const forking = (phase === 'fork' || phase === 'feedback') && question;
+    drawTunnel(tunnelDepth, forking, phase === 'feedback' ? pickedSide : null);
+  }
+
+  function loop(ts){
+    if (phase === 'finished' || phase === 'idle') return;
+    if (!last) last = ts;
+    const dt = Math.min(40, ts - last);
+    last = ts;
+    update(dt);
+    render();
+    if (phase === 'walk' && !question) question = makeQuestion();
+    raf = requestAnimationFrame(loop);
+  }
+
+  // ---------------- input ----------------
+  startOverlay.querySelectorAll('.diff-btn').forEach(btn => {
+    btn.addEventListener('click', () => { ensureAudio(); startGame(btn.dataset.diff); });
+  });
+  retryBtn.addEventListener('click', () => { ensureAudio(); startGame(currentDiff); });
+  restartBtn.addEventListener('click', () => {
+    if (phase === 'idle' || phase === 'finished') return;
+    ensureAudio(); startGame(currentDiff);
+  });
+  changeDiffLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    resultOverlay.classList.add('hidden');
+    startOverlay.classList.remove('hidden');
+  });
+
+  document.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button, a')) return;
+    if (phase !== 'fork') return;
+    e.preventDefault();
+    const rect = field.getBoundingClientRect();
+    const relX = e.clientX - rect.left;
+    const side = relX < rect.width/2 ? 'left' : 'right';
+    choose(side);
+  }, { passive:false });
+
+  // idle first paint
+  drawTunnel(0, false, null);
+})();
+</script>
+</body>
+</html>
