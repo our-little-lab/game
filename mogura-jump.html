@@ -203,8 +203,7 @@
     return pool[Math.floor(Math.random()*pool.length)];
   }
 
-  function spawnObstacle(){
-    const kind = pickObstacleKind();
+  function spawnObstacleOfKind(kind){
     if (kind === 'rock') {
       const w = 26 + Math.random()*8, h = 30 + Math.random()*10;
       obstacles.push({ kind, x:W+20, y:GROUND_Y-h, w, h, passed:false });
@@ -309,12 +308,14 @@
     if (obsTimer >= nextObsIn) {
       obsTimer = 0;
       const st = stageOf(score);
+      const kind = pickObstacleKind();
       const baseMin = Math.max(700, 1250 - st*80);
       const baseMax = Math.max(1500, 2100 - st*100);
       let interval = baseMin + Math.random()*(baseMax-baseMin);
-      if (st >= 3 && Math.random() < 0.22) interval *= 0.6; // occasional tight cluster for unevenness
+      // keep enemies clear of tight clusters so a beam kill is never confused with a nearby hazard
+      if (st >= 3 && kind !== 'enemy' && Math.random() < 0.22) interval *= 0.6;
       nextObsIn = interval;
-      spawnObstacle();
+      spawnObstacleOfKind(kind);
     }
 
     itemTimer += dt;
@@ -364,7 +365,6 @@
       }
     }
 
-    if (invuln > 0) continue_or_skip(); // no-op marker (readability)
     if (invuln <= 0) {
       for (const o of obstacles) {
         if (o.kind === 'enemy' && o.alive === false) continue;
@@ -388,11 +388,14 @@
           } else {
             loseLife();
           }
+          // Resolve only one collision per frame: once the mole is hit (or a beam
+          // kill happens), stop checking the rest so a nearby unrelated obstacle
+          // can never be blamed for damage that came from something else.
+          break;
         }
       }
     }
   }
-  function continue_or_skip(){}
 
   // ---- drawing ----
   function drawBackgroundSky(){
