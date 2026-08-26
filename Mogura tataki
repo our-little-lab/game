@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>もぐらたたき</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky-top:#8ECAE6;
+    --sky-bottom:#DFF6E3;
+    --grass-1:#6FCB6F;
+    --grass-2:#4CA64C;
+    --dirt:#7A4A28;
+    --dirt-dark:#5C3618;
+    --mole-body:#A9745B;
+    --mole-belly:#EAD1B0;
+    --mole-nose:#F2A0A0;
+    --accent:#FF6B6B;
+    --accent-dark:#E25555;
+    --gold:#FFC93C;
+    --ink:#1B4332;
+    --card:#FFFDF7;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+  html,body{margin:0; height:100%; overscroll-behavior:none;}
+  body{
+    font-family:'Nunito', sans-serif;
+    background:linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 55%, var(--grass-2) 55%, var(--grass-1) 100%);
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    touch-action:manipulation;
+  }
+  .stage{
+    width:min(480px, 96vw);
+    padding:14px;
+  }
+
+  /* ---------- HUD ---------- */
+  .hud{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:10px;
+    gap:10px;
+  }
+  .badge{
+    background:var(--card);
+    border-radius:18px;
+    padding:8px 16px;
+    box-shadow:0 4px 0 rgba(0,0,0,0.12);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    min-width:72px;
+  }
+  .badge .label{font-size:11px; font-weight:800; color:#8a8a7a; letter-spacing:.05em;}
+  .badge .value{font-family:'Baloo 2', sans-serif; font-size:26px; font-weight:800; color:var(--ink); line-height:1.1;}
+  .badge.time .value{transition:color .2s;}
+  .badge.time.low .value{color:var(--accent-dark);}
+  .mute-btn{
+    background:var(--card);
+    border:none;
+    border-radius:50%;
+    width:44px; height:44px;
+    box-shadow:0 4px 0 rgba(0,0,0,0.12);
+    font-size:20px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+  }
+
+  /* ---------- Field ---------- */
+  .field{
+    position:relative;
+    background:radial-gradient(circle at 50% 20%, #7FD37F 0%, var(--grass-1) 45%, var(--grass-2) 100%);
+    border-radius:24px;
+    padding:22px 16px;
+    box-shadow:0 10px 0 rgba(0,0,0,0.15), inset 0 0 0 4px rgba(255,255,255,0.25);
+  }
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:14px;
+  }
+  .hole{
+    position:relative;
+    aspect-ratio:1/0.85;
+    border-radius:50%;
+    background:radial-gradient(ellipse at 50% 40%, var(--dirt) 0%, var(--dirt-dark) 85%);
+    box-shadow:inset 0 8px 14px rgba(0,0,0,0.45), inset 0 -3px 0 rgba(255,255,255,0.08);
+    overflow:hidden;
+    cursor:pointer;
+  }
+  .tuft{
+    position:absolute; bottom:-2px; width:22%; height:30%;
+    background:var(--grass-1);
+    border-radius:50% 50% 0 0;
+  }
+  .tuft.l{left:2%;} .tuft.r{right:2%; background:var(--grass-2);}
+
+  .mole{
+    position:absolute;
+    left:50%; bottom:-90%;
+    width:74%; height:78%;
+    transform:translate(-50%, 0);
+    transition:bottom .16s cubic-bezier(.34,1.56,.64,1);
+  }
+  .hole.up .mole{ bottom:6%; }
+  .hole.hit .mole{ transition:transform .12s ease, bottom .12s ease; transform:translate(-50%,0) scaleY(.55); bottom:-10%; }
+
+  .mole-body{
+    position:absolute; inset:0;
+    background:var(--mole-body);
+    border-radius:50% 50% 45% 45%;
+  }
+  .mole.golden .mole-body{ background:var(--gold); }
+  .mole-belly{
+    position:absolute; left:50%; bottom:6%; width:56%; height:42%;
+    transform:translateX(-50%);
+    background:var(--mole-belly);
+    border-radius:50%;
+  }
+  .mole.golden .mole-belly{ background:#FFF1C2; }
+  .eye{
+    position:absolute; top:26%; width:13%; height:13%;
+    background:#2B2118; border-radius:50%;
+  }
+  .eye.l{left:26%;} .eye.r{right:26%;}
+  .nose{
+    position:absolute; top:44%; left:50%; width:16%; height:11%;
+    background:var(--mole-nose); border-radius:50%;
+    transform:translateX(-50%);
+  }
+  .sparkle{
+    position:absolute; inset:-20%;
+    pointer-events:none;
+  }
+
+  .pop-score{
+    position:absolute; top:0; left:50%;
+    transform:translate(-50%,0);
+    font-family:'Baloo 2', sans-serif;
+    font-weight:800; font-size:22px;
+    color:var(--accent-dark);
+    text-shadow:0 2px 0 #fff;
+    pointer-events:none;
+    animation:floatUp .6s ease forwards;
+    z-index:5;
+  }
+  .pop-score.golden{ color:#B8860B; }
+  @keyframes floatUp{
+    0%{ opacity:1; transform:translate(-50%,0) scale(0.8); }
+    30%{ transform:translate(-50%,-18px) scale(1.15); }
+    100%{ opacity:0; transform:translate(-50%,-46px) scale(1); }
+  }
+
+  /* ---------- Overlays ---------- */
+  .overlay{
+    position:fixed; inset:0;
+    background:rgba(20,50,30,0.55);
+    display:flex; align-items:center; justify-content:center;
+    padding:20px;
+    z-index:20;
+  }
+  .overlay.hidden{display:none;}
+  .panel{
+    background:var(--card);
+    border-radius:26px;
+    padding:32px 26px;
+    text-align:center;
+    width:min(360px, 92vw);
+    box-shadow:0 14px 0 rgba(0,0,0,0.2);
+  }
+  .panel h1{
+    font-family:'Baloo 2', sans-serif;
+    font-size:34px;
+    color:var(--ink);
+    margin:0 0 6px;
+  }
+  .panel p{
+    color:#5b6b5e;
+    font-weight:700;
+    margin:0 0 20px;
+    line-height:1.5;
+  }
+  .mole-icon{
+    width:100px; height:80px;
+    margin:0 auto 16px;
+    position:relative;
+  }
+  .big-btn{
+    font-family:'Baloo 2', sans-serif;
+    font-size:22px;
+    font-weight:800;
+    color:#fff;
+    background:var(--accent);
+    border:none;
+    border-radius:18px;
+    padding:14px 30px;
+    box-shadow:0 6px 0 var(--accent-dark);
+    cursor:pointer;
+    width:100%;
+  }
+  .big-btn:active{ box-shadow:0 2px 0 var(--accent-dark); transform:translateY(4px); }
+
+  .result-score{
+    font-family:'Baloo 2', sans-serif;
+    font-size:52px;
+    color:var(--accent-dark);
+    margin:6px 0 2px;
+  }
+  .result-best{
+    font-size:15px;
+    color:#8a8a7a;
+    font-weight:800;
+    margin-bottom:20px;
+  }
+  .new-best{
+    color:var(--gold);
+    font-family:'Baloo 2', sans-serif;
+    font-size:16px;
+    margin-bottom:10px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .hole .mole, .big-btn, .pop-score{ transition:none; animation:none; }
+  }
+  .home-link{ position:fixed; top:12px; left:12px; z-index:30; background:var(--card); border-radius:14px;
+    padding:8px 14px; font-weight:800; color:var(--ink); text-decoration:none; box-shadow:0 4px 0 rgba(0,0,0,0.12); font-size:14px; }
+</style>
+</head>
+<body>
+
+<a class="home-link" href="index.html">🏠 メニュー</a>
+
+<div class="stage">
+  <div class="hud">
+    <div class="badge">
+      <div class="label">スコア</div>
+      <div class="value" id="scoreVal">0</div>
+    </div>
+    <button class="mute-btn" id="muteBtn" aria-label="おとをけす">🔊</button>
+    <div class="badge time" id="timeBadge">
+      <div class="label">じかん</div>
+      <div class="value" id="timeVal">30</div>
+    </div>
+  </div>
+
+  <div class="field">
+    <div class="grid" id="grid"></div>
+  </div>
+</div>
+
+<!-- スタート画面 -->
+<div class="overlay" id="startOverlay">
+  <div class="panel">
+    <div class="mole-icon">
+      <div class="mole" style="position:absolute; left:50%; bottom:0; transform:translateX(-50%);">
+        <div class="mole-body"></div>
+        <div class="mole-belly"></div>
+        <div class="eye l"></div><div class="eye r"></div>
+        <div class="nose"></div>
+      </div>
+    </div>
+    <h1>もぐらたたき</h1>
+    <p>でてきたもぐらを<br>ゆびでタップしよう!</p>
+    <button class="big-btn" id="startBtn">はじめる</button>
+  </div>
+</div>
+
+<!-- 結果画面 -->
+<div class="overlay hidden" id="resultOverlay">
+  <div class="panel">
+    <h1>おわり!</h1>
+    <div class="result-score" id="finalScore">0</div>
+    <div class="new-best hidden" id="newBestLabel">✨ さいこうきろく! ✨</div>
+    <div class="result-best" id="bestLine">さいこう: 0</div>
+    <button class="big-btn" id="retryBtn">もういちど</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const COLS = 3, ROWS = 3, HOLE_COUNT = COLS * ROWS;
+  const ROUND_MS = 30000;
+  const MAX_CONCURRENT = 2;
+  const GOLDEN_CHANCE = 0.15;
+  const BEST_KEY = 'mogura_best_score_v1';
+
+  const grid = document.getElementById('grid');
+  const scoreVal = document.getElementById('scoreVal');
+  const timeVal = document.getElementById('timeVal');
+  const timeBadge = document.getElementById('timeBadge');
+  const startOverlay = document.getElementById('startOverlay');
+  const resultOverlay = document.getElementById('resultOverlay');
+  const startBtn = document.getElementById('startBtn');
+  const retryBtn = document.getElementById('retryBtn');
+  const muteBtn = document.getElementById('muteBtn');
+  const finalScore = document.getElementById('finalScore');
+  const bestLine = document.getElementById('bestLine');
+  const newBestLabel = document.getElementById('newBestLabel');
+
+  let holes = [];
+  let score = 0;
+  let timeLeft = ROUND_MS;
+  let running = false;
+  let muted = false;
+  let spawnTimer = null;
+  let tickTimer = null;
+  let lastTick = 0;
+
+  // ---- build holes ----
+  for (let i = 0; i < HOLE_COUNT; i++) {
+    const hole = document.createElement('div');
+    hole.className = 'hole';
+    hole.innerHTML = `
+      <div class="tuft l"></div><div class="tuft r"></div>
+      <div class="mole">
+        <div class="mole-body"></div>
+        <div class="mole-belly"></div>
+        <div class="eye l"></div><div class="eye r"></div>
+        <div class="nose"></div>
+      </div>`;
+    hole.dataset.state = 'empty';
+    hole.dataset.golden = 'false';
+    hole.addEventListener('pointerdown', () => onTap(hole));
+    grid.appendChild(hole);
+    holes.push(hole);
+  }
+
+  // ---- sound (WebAudio, no external files) ----
+  let actx = null;
+  function ensureAudio(){ if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); }
+  function beep(freq, dur, type='sine', gain=0.18){
+    if (muted) return;
+    ensureAudio();
+    const t0 = actx.currentTime;
+    const osc = actx.createOscillator();
+    const g = actx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    g.gain.setValueAtTime(gain, t0);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    osc.connect(g).connect(actx.destination);
+    osc.start(t0);
+    osc.stop(t0 + dur);
+  }
+  function sfxHit(){ beep(520, 0.12, 'triangle', 0.22); }
+  function sfxGolden(){ beep(660, 0.09,'sine',0.2); setTimeout(()=>beep(880,0.14,'sine',0.2), 70); }
+  function sfxStart(){ beep(392,0.1,'sine',0.15); setTimeout(()=>beep(523,0.12,'sine',0.15),100); }
+  function sfxEnd(){ beep(330,0.15,'sine',0.18); setTimeout(()=>beep(220,0.25,'sine',0.18),150); }
+
+  muteBtn.addEventListener('click', () => {
+    muted = !muted;
+    muteBtn.textContent = muted ? '🔇' : '🔊';
+  });
+
+  // ---- game flow ----
+  function resetHole(hole){
+    hole.dataset.state = 'empty';
+    hole.dataset.golden = 'false';
+    hole.classList.remove('up','hit');
+    hole.querySelector('.mole').classList.remove('golden');
+    clearTimeout(hole._hideTimer);
+  }
+
+  function popMole(hole){
+    if (hole.dataset.state !== 'empty') return;
+    const golden = Math.random() < GOLDEN_CHANCE;
+    hole.dataset.state = 'up';
+    hole.dataset.golden = golden ? 'true' : 'false';
+    hole.classList.add('up');
+    hole.querySelector('.mole').classList.toggle('golden', golden);
+    const upTime = 750 + Math.random() * 550;
+    hole._hideTimer = setTimeout(() => {
+      if (hole.dataset.state === 'up') resetHole(hole);
+    }, upTime);
+  }
+
+  function onTap(hole){
+    if (!running) return;
+    if (hole.dataset.state !== 'up') return;
+    const golden = hole.dataset.golden === 'true';
+    const points = golden ? 3 : 1;
+    score += points;
+    scoreVal.textContent = score;
+
+    const pop = document.createElement('div');
+    pop.className = 'pop-score' + (golden ? ' golden' : '');
+    pop.textContent = '+' + points;
+    hole.appendChild(pop);
+    setTimeout(() => pop.remove(), 620);
+
+    hole.classList.add('hit');
+    golden ? sfxGolden() : sfxHit();
+    clearTimeout(hole._hideTimer);
+    setTimeout(() => resetHole(hole), 140);
+  }
+
+  function spawnLoop(){
+    const activeCount = holes.filter(h => h.dataset.state === 'up').length;
+    if (activeCount < MAX_CONCURRENT && Math.random() < 0.85) {
+      const empties = holes.filter(h => h.dataset.state === 'empty');
+      if (empties.length) {
+        const h = empties[Math.floor(Math.random() * empties.length)];
+        popMole(h);
+      }
+    }
+    spawnTimer = setTimeout(spawnLoop, 480 + Math.random() * 380);
+  }
+
+  function tick(ts){
+    if (!running) return;
+    if (!lastTick) lastTick = ts;
+    const dt = ts - lastTick;
+    lastTick = ts;
+    timeLeft -= dt;
+    const secs = Math.max(0, Math.ceil(timeLeft / 1000));
+    timeVal.textContent = secs;
+    timeBadge.classList.toggle('low', secs <= 10);
+    if (timeLeft <= 0) {
+      endGame();
+      return;
+    }
+    tickTimer = requestAnimationFrame(tick);
+  }
+
+  function startGame(){
+    score = 0;
+    scoreVal.textContent = '0';
+    timeLeft = ROUND_MS;
+    timeVal.textContent = Math.ceil(ROUND_MS/1000);
+    timeBadge.classList.remove('low');
+    holes.forEach(resetHole);
+    running = true;
+    lastTick = 0;
+    startOverlay.classList.add('hidden');
+    resultOverlay.classList.add('hidden');
+    sfxStart();
+    spawnLoop();
+    tickTimer = requestAnimationFrame(tick);
+  }
+
+  function endGame(){
+    running = false;
+    clearTimeout(spawnTimer);
+    cancelAnimationFrame(tickTimer);
+    holes.forEach(resetHole);
+    sfxEnd();
+
+    const best = Number(localStorage.getItem(BEST_KEY) || 0);
+    const isNewBest = score > best;
+    if (isNewBest) localStorage.setItem(BEST_KEY, String(score));
+
+    finalScore.textContent = score;
+    bestLine.textContent = 'さいこう: ' + (isNewBest ? score : best);
+    newBestLabel.classList.toggle('hidden', !isNewBest);
+    resultOverlay.classList.remove('hidden');
+  }
+
+  startBtn.addEventListener('click', () => { ensureAudio(); startGame(); });
+  retryBtn.addEventListener('click', () => { ensureAudio(); startGame(); });
+})();
+</script>
+</body>
+</html>
