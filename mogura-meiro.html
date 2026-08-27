@@ -3,16 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>もぐらけいさんトンネル</title>
+<title>もぐらめいろ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --cave-1:#3B2A1E; --cave-2:#1E140D; --cave-glow:#FFD98A;
+    --soil-1:#5b4028; --soil-2:#2a1c11; --path:#C9A876; --path-edge:#8B6A42;
     --accent:#FF6B6B; --accent-dark:#E25555;
     --gold:#FFC93C; --ink:#1B4332; --card:#FFFDF7;
-    --green:#5FBF6B; --green-dark:#3D9A48;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;}
   html,body{margin:0; height:100%; overscroll-behavior:none; touch-action:manipulation;}
@@ -30,7 +29,7 @@
     display:flex; flex-direction:column; align-items:center; min-width:64px;
   }
   .badge .label{ font-size:10px; font-weight:800; color:#8a8a7a; letter-spacing:.03em; }
-  .badge .value{ font-family:'Baloo 2', sans-serif; font-size:22px; font-weight:800; color:var(--ink); line-height:1.1; }
+  .badge .value{ font-family:'Baloo 2', sans-serif; font-size:21px; font-weight:800; color:var(--ink); line-height:1.1; }
   .mute-btn{
     background:var(--card); border:none; border-radius:50%;
     width:40px; height:40px; box-shadow:0 4px 0 rgba(0,0,0,0.25);
@@ -53,7 +52,7 @@
     background:var(--accent); border:none; border-radius:18px; padding:14px 30px;
     box-shadow:0 6px 0 var(--accent-dark); cursor:pointer; width:100%; }
   .big-btn:active{ box-shadow:0 2px 0 var(--accent-dark); transform:translateY(4px); }
-  .result-score{ font-family:'Baloo 2', sans-serif; font-size:44px; color:var(--accent-dark); margin:4px 0 2px; }
+  .result-score{ font-family:'Baloo 2', sans-serif; font-size:40px; color:var(--accent-dark); margin:4px 0 2px; }
   .result-best{ font-size:14px; color:#8a8a7a; font-weight:800; margin-bottom:18px; }
   .new-best{ color:var(--gold); font-family:'Baloo 2', sans-serif; font-size:16px; margin-bottom:8px; }
 
@@ -83,29 +82,30 @@
 
 <div class="stage">
   <div class="hud">
-    <div class="badge"><div class="label">せいかい</div><div class="value" id="correctVal">0/5</div></div>
+    <div class="badge"><div class="label">タイム</div><div class="value" id="timeVal">0.0</div></div>
     <button class="mute-btn" id="muteBtn" aria-label="おとをけす">🔊</button>
     <button class="mute-btn" id="restartBtn" aria-label="さいしょから やりなおす">🔄</button>
-    <div class="badge"><div class="label">さいこう</div><div class="value" id="bestVal">0/5</div></div>
+    <div class="badge"><div class="label">さいこう</div><div class="value" id="bestVal">--</div></div>
   </div>
-  <div class="field"><canvas id="game" width="480" height="320"></canvas></div>
+  <div class="field"><canvas id="game" width="480" height="360"></canvas></div>
 </div>
 
 <div class="overlay" id="startOverlay">
   <div class="panel">
-    <h1>もぐらけいさん<br>トンネル</h1>
+    <h1>もぐらめいろ</h1>
     <div class="howto">
-      <div>👉 トンネルの分かれ道で <b>けいさん問題</b> が出るよ</div>
-      <div>👉 こたえが正しいほうの道を<b>タップ</b>して進もう</div>
-      <div>👉 まちがえても そのまま次の問題にすすむよ</div>
-      <div>👉 5問中なんもん正解できるかな?</div>
+      <div>👉 いくつも道が見えるけど、<b>正解は1本だけ</b></div>
+      <div>👉 分かれ道でどちらかの道を<b>タップ</b></div>
+      <div>👉 ワナの道は 手前まで来ると<b>ワナが発動</b>して引き返す</div>
+      <div>👉 ゴールまでの<b>タイムを きそおう</b></div>
+      <div>👉 10びょう なやんでいると、正解ルートが少し光るよ</div>
     </div>
     <div class="diff-label">なんいどを えらんでね</div>
     <div class="diff-grid">
-      <button class="diff-btn easy" data-diff="easy">🟢 イージー<small>たしざん・~9</small></button>
-      <button class="diff-btn normal" data-diff="normal">🔵 ノーマル<small>たしざん・~29</small></button>
-      <button class="diff-btn hard" data-diff="hard">🟠 ハード<small>たし・ひき・~99</small></button>
-      <button class="diff-btn expert" data-diff="expert">🔴 エキスパート<small>四則2かい・~99</small></button>
+      <button class="diff-btn easy" data-diff="easy">🟢 イージー<small>3つの分かれ道</small></button>
+      <button class="diff-btn normal" data-diff="normal">🔵 ノーマル<small>4つの分かれ道</small></button>
+      <button class="diff-btn hard" data-diff="hard">🟠 ハード<small>5つ・3また あり</small></button>
+      <button class="diff-btn expert" data-diff="expert">🔴 エキスパート<small>6つ・3また 多め</small></button>
     </div>
   </div>
 </div>
@@ -118,10 +118,10 @@
 
 <div class="overlay hidden" id="resultOverlay">
   <div class="panel">
-    <h1 id="resultTitle">おわり!</h1>
-    <div class="result-score" id="finalScore">0/5</div>
+    <h1 id="resultTitle">ゴール!</h1>
+    <div class="result-score" id="finalTime">0.0びょう</div>
     <div class="new-best hidden" id="newBestLabel">✨ さいこうきろく! ✨</div>
-    <div class="result-best" id="bestLine">さいこう: 0/5</div>
+    <div class="result-best" id="bestLine">さいこう: --</div>
     <button class="big-btn" id="retryBtn">もういちど</button>
     <div style="margin-top:12px;">
       <a href="#" id="changeDiffLink" style="font-weight:800; color:#8a8a7a; font-size:13px; text-decoration:underline;">なんいどをかえる</a>
@@ -131,22 +131,20 @@
 
 <script>
 (() => {
-  const BEST_KEY_PREFIX = 'mogura_meiro_best_v1_';
-  const TOTAL_Q = 5;
+  const BEST_KEY_PREFIX = 'mogura_meiro_best_time_v1_';
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
   const field = document.querySelector('.field');
 
-  const correctVal = document.getElementById('correctVal');
+  const timeVal = document.getElementById('timeVal');
   const bestVal = document.getElementById('bestVal');
   const modeBadge = document.getElementById('modeBadge');
   const startOverlay = document.getElementById('startOverlay');
   const countdownOverlay = document.getElementById('countdownOverlay');
   const countdownText = document.getElementById('countdownText');
   const resultOverlay = document.getElementById('resultOverlay');
-  const resultTitle = document.getElementById('resultTitle');
-  const finalScore = document.getElementById('finalScore');
+  const finalTime = document.getElementById('finalTime');
   const bestLine = document.getElementById('bestLine');
   const newBestLabel = document.getElementById('newBestLabel');
   const retryBtn = document.getElementById('retryBtn');
@@ -170,119 +168,86 @@
   }
   const sfxCount = () => beep(440, 0.12, 'sine', 0.15);
   const sfxStart = () => { beep(392,0.1,'sine',0.15); beep(523,0.12,'sine',0.15,0.1); };
-  const sfxCorrect = () => { beep(660,0.09,'sine',0.2); beep(880,0.14,'sine',0.2,0.09); };
-  const sfxWrong = () => { beep(220,0.12,'sawtooth',0.18); beep(150,0.18,'sawtooth',0.16,0.09); };
-  const sfxWalk = () => beep(300, 0.03, 'triangle', 0.05);
-  const sfxDone = () => { beep(523,0.12,'sine',0.18); beep(659,0.12,'sine',0.18,0.12); beep(784,0.18,'sine',0.18,0.24); };
+  const sfxTrap = () => { beep(200,0.1,'sawtooth',0.2); beep(120,0.2,'sawtooth',0.18,0.08); };
+  const sfxStep = () => beep(320, 0.03, 'triangle', 0.05);
+  const sfxGoal = () => { beep(523,0.1,'sine',0.18); beep(659,0.1,'sine',0.18,0.1); beep(784,0.1,'sine',0.18,0.2); beep(1046,0.18,'sine',0.18,0.3); };
+  const sfxHint = () => beep(880, 0.08, 'sine', 0.1);
 
   muteBtn.addEventListener('click', () => { muted = !muted; muteBtn.textContent = muted ? '🔇' : '🔊'; });
 
-  // ---------------- math question generation ----------------
-  function randInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; }
-
-  function evalTwoOp(a, op1, b, op2, c){
-    let nums = [a,b,c], ops = [op1, op2];
-    let i = 0;
-    while (i < ops.length) {
-      if (ops[i] === '×' || ops[i] === '÷') {
-        const left = nums[i], right = nums[i+1];
-        if (right === 0) return null;
-        if (ops[i] === '÷' && left % right !== 0) return null;
-        const val = ops[i] === '×' ? left * right : left / right;
-        if (val < 0) return null;
-        nums.splice(i, 2, val);
-        ops.splice(i, 1);
-      } else i++;
-    }
-    let result = nums[0];
-    for (let j = 0; j < ops.length; j++) {
-      result = ops[j] === '+' ? result + nums[j+1] : result - nums[j+1];
-      if (result < 0) return null;
-    }
-    return result;
-  }
-
-  function genEasy(){
-    for (let t=0;t<200;t++){
-      const a = randInt(1,8), b = randInt(1,8);
-      const sum = a+b;
-      if (sum < 10) return { text:`${a} + ${b}`, correct: sum };
-    }
-    return { text:'1 + 1', correct:2 };
-  }
-  function genNormal(){
-    for (let t=0;t<200;t++){
-      const a = randInt(1,25), b = randInt(1,25);
-      const sum = a+b;
-      if (sum < 30) return { text:`${a} + ${b}`, correct: sum };
-    }
-    return { text:'10 + 10', correct:20 };
-  }
-  function genHard(){
-    for (let t=0;t<300;t++){
-      const op = Math.random()<0.5 ? '+' : '-';
-      let a = randInt(1,90), b = randInt(1,90);
-      let result;
-      if (op === '+') { result = a+b; }
-      else { if (b>a) [a,b]=[b,a]; result = a-b; }
-      if (result >= 0 && result < 100) return { text:`${a} ${op} ${b}`, correct: result };
-    }
-    return { text:'50 + 10', correct:60 };
-  }
-  function genExpert(){
-    const OPS = ['+','-','×','÷'];
-    for (let t=0;t<500;t++){
-      const op1 = OPS[randInt(0,3)], op2 = OPS[randInt(0,3)];
-      const smallRange = () => randInt(2,9);
-      const bigRange = () => randInt(1,60);
-      const a = (op1==='×'||op1==='÷') ? smallRange() : bigRange();
-      const b = ((op1==='×'||op1==='÷') || (op2==='×'||op2==='÷')) ? smallRange() : bigRange();
-      const c = (op2==='×'||op2==='÷') ? smallRange() : bigRange();
-      const result = evalTwoOp(a, op1, b, op2, c);
-      if (result !== null && result < 100 && result >= 0 && Number.isInteger(result)) {
-        return { text:`${a} ${op1} ${b} ${op2} ${c}`, correct: result };
-      }
-    }
-    return { text:'5 × 8 + 30', correct:70 };
-  }
+  // ---------------- maze generation ----------------
+  function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+  function choice(arr){ return arr[randInt(0, arr.length-1)]; }
+  const TRAP_TYPES = ['pit','wall','boulder'];
 
   const DIFFS = {
-    easy:   { label:'🟢 イージー', color:'#5FBF6B', gen: genEasy },
-    normal: { label:'🔵 ノーマル', color:'#4A90D9', gen: genNormal },
-    hard:   { label:'🟠 ハード',   color:'#E8934A', gen: genHard },
-    expert: { label:'🔴 エキスパート', color:'#D6453F', gen: genExpert },
+    easy:   { label:'🟢 イージー', color:'#5FBF6B', junctions:3, branchesRange:[2,2], decoyLenRange:[1,1], segLen:3 },
+    normal: { label:'🔵 ノーマル', color:'#4A90D9', junctions:4, branchesRange:[2,2], decoyLenRange:[1,2], segLen:3 },
+    hard:   { label:'🟠 ハード',   color:'#E8934A', junctions:5, branchesRange:[2,3], decoyLenRange:[2,3], segLen:3 },
+    expert: { label:'🔴 エキスパート', color:'#D6453F', junctions:6, branchesRange:[2,3], decoyLenRange:[2,4], segLen:3 },
   };
   let currentDiff = 'normal';
+  const BRANCH_VISUAL_LEN = 4; // decoys always *look* this long so they never visually give themselves away
 
-  function makeQuestion(){
-    const q = DIFFS[currentDiff].gen();
-    let wrong;
-    for (let t=0;t<20;t++){
-      const delta = randInt(1, Math.max(2, Math.round(q.correct*0.3)+2));
-      wrong = q.correct + (Math.random()<0.5 ? -delta : delta);
-      if (wrong >= 0 && wrong !== q.correct) break;
+  function generateMaze(cfg){
+    const junctions = [];
+    let col = 0, row = 0;
+    const segments = [];
+    const truePathCells = [{ row:0, col:0 }];
+
+    for (let j=0; j<cfg.junctions; j++){
+      segments.push({ fromRow: row, toRow: row+cfg.segLen, col });
+      for (let r=row+1; r<=row+cfg.segLen; r++) truePathCells.push({ row:r, col });
+      row += cfg.segLen;
+      const junctionRow = row;
+
+      const options = [-1,0,1].map(d => col+d).filter(c => Math.abs(c) <= 3);
+      const trueCol = choice(options);
+      const branchCount = randInt(cfg.branchesRange[0], cfg.branchesRange[1]);
+      const branches = [{ col: trueCol, isTrue:true }];
+      const takenCols = new Set([trueCol]);
+      let guard = 0;
+      while (branches.length < branchCount && guard < 30){
+        guard++;
+        const d = choice([-2,-1,1,2]);
+        const c = col + d;
+        if (takenCols.has(c) || Math.abs(c) > 3) continue;
+        takenCols.add(c);
+        const decoyLen = randInt(cfg.decoyLenRange[0], cfg.decoyLenRange[1]);
+        branches.push({ col:c, isTrue:false, decoyLen, trapType: choice(TRAP_TYPES), revealed:false });
+      }
+      junctions.push({ row: junctionRow, branches });
+      col = trueCol;
     }
-    if (wrong === undefined || wrong < 0 || wrong === q.correct) wrong = q.correct + 3;
-    const correctOnLeft = Math.random() < 0.5;
-    return {
-      text: q.text + ' = ?',
-      correct: q.correct,
-      left: correctOnLeft ? q.correct : wrong,
-      right: correctOnLeft ? wrong : q.correct,
-      correctSide: correctOnLeft ? 'left' : 'right'
-    };
+    const finalLen = cfg.segLen;
+    segments.push({ fromRow: row, toRow: row+finalLen, col });
+    for (let r=row+1; r<=row+finalLen; r++) truePathCells.push({ row:r, col });
+    row += finalLen;
+    return { segments, junctions, goalRow: row, truePathCells };
   }
 
-  // ---------------- game state ----------------
-  let phase = 'idle'; // idle | walk | fork | feedback | finished
-  let phaseTime = 0;
-  let roundIndex = 0;
-  let correctCount = 0;
-  let question = null;
-  let pickedSide = null;
-  let tunnelDepth = 0;
-  let raf = null, last = 0;
+  // ---------------- state ----------------
+  let maze = null;
+  let phase = 'idle'; // idle | auto | choose | branching | trapped | retreating | finished
+  let curRow = 0, curCol = 0;       // animated (float) position
+  let animFrom = null, animTo = null, animStart = 0, animDur = 0;
+  let activeJunctionIndex = 0;
+  let activeSegmentIndex = 0;
+  let activeBranch = null;
+  let elapsedMs = 0, running = false;
+  let lastFrameTs = 0;
+  let idleTimerStart = 0;
+  let hintActive = false;
+  let raf = null;
   let countdownTimer1 = null, countdownTimer2 = null;
+  let branchStepsWalked = 0;
+  let pendingAfterTrueStep = null;
+
+  const ROW_MS = 520;
+
+  function startAnim(fromRC, toRC, dur){
+    animFrom = fromRC; animTo = toRC; animStart = performance.now(); animDur = dur;
+  }
 
   function resetRun(diff){
     if (diff) currentDiff = diff;
@@ -290,14 +255,16 @@
     modeBadge.textContent = cfg.label;
     modeBadge.style.background = cfg.color;
     modeBadge.style.display = 'block';
-    roundIndex = 0;
-    correctCount = 0;
-    correctVal.textContent = '0/' + TOTAL_Q;
-    bestVal.textContent = (localStorage.getItem(BEST_KEY_PREFIX+currentDiff) || '0') + '/' + TOTAL_Q;
+    maze = generateMaze(cfg);
     phase = 'idle';
-    question = null;
-    pickedSide = null;
-    tunnelDepth = 0;
+    curRow = 0; curCol = 0;
+    activeJunctionIndex = 0; activeSegmentIndex = 0; activeBranch = null;
+    elapsedMs = 0; running = false;
+    branchStepsWalked = 0; pendingAfterTrueStep = null;
+    timeVal.textContent = '0.0';
+    const best = localStorage.getItem(BEST_KEY_PREFIX+currentDiff);
+    bestVal.textContent = best ? (Number(best)/1000).toFixed(1) : '--';
+    hintActive = false;
   }
 
   function startGame(diff){
@@ -319,131 +286,141 @@
   }
 
   function beginRun(){
-    phase = 'walk'; phaseTime = 0;
-    last = 0;
+    running = true;
+    elapsedMs = 0;
+    lastFrameTs = 0;
+    beginSegment(0);
     raf = requestAnimationFrame(loop);
   }
 
-  function nextRound(){
-    if (roundIndex >= TOTAL_Q) { finishRun(); return; }
-    question = makeQuestion();
-    pickedSide = null;
-    phase = 'walk';
-    phaseTime = 0;
+  function beginSegment(segIndex){
+    activeSegmentIndex = segIndex;
+    const seg = maze.segments[segIndex];
+    phase = 'auto';
+    startAnim({row:seg.fromRow, col:seg.col}, {row:seg.toRow, col:seg.col}, (seg.toRow-seg.fromRow)*ROW_MS);
+  }
+
+  function arriveAtJunction(jIndex){
+    activeJunctionIndex = jIndex;
+    phase = 'choose';
+    idleTimerStart = performance.now();
+    hintActive = false;
+  }
+
+  function chooseBranch(branch){
+    if (phase !== 'choose') return;
+    hintActive = false;
+    activeBranch = branch;
+    const j = maze.junctions[activeJunctionIndex];
+    branchStepsWalked = 0;
+    if (branch.isTrue) {
+      phase = 'auto';
+      activeSegmentIndex = activeSegmentIndex + 1;
+      const nextSeg = maze.segments[activeSegmentIndex];
+      pendingAfterTrueStep = () => {
+        startAnim({row:curRow, col:curCol}, {row:nextSeg.toRow, col:nextSeg.col}, (nextSeg.toRow-curRow)*ROW_MS);
+      };
+      startAnim({row:j.row, col:curCol}, {row:j.row+1, col:branch.col}, ROW_MS);
+    } else {
+      phase = 'branching';
+      startAnim({row:j.row, col:curCol}, {row:j.row+1, col:branch.col}, ROW_MS);
+    }
+  }
+
+  function loop(ts){
+    if (!running) return;
+    if (!lastFrameTs) lastFrameTs = ts;
+    const dt = ts - lastFrameTs;
+    lastFrameTs = ts;
+    elapsedMs += dt;
+    timeVal.textContent = (elapsedMs/1000).toFixed(1);
+
+    updateAnim(ts);
+    checkHint(ts);
+    render();
+
+    raf = requestAnimationFrame(loop);
+  }
+
+  function updateAnim(ts){
+    if (!animFrom) return;
+    const t = Math.min(1, (ts - animStart) / animDur);
+    curRow = animFrom.row + (animTo.row - animFrom.row) * t;
+    curCol = animFrom.col + (animTo.col - animFrom.col) * t;
+    if (t >= 1) {
+      curRow = animTo.row; curCol = animTo.col;
+      animFrom = null;
+      onAnimComplete();
+    }
+  }
+
+  function onAnimComplete(){
+    if (phase === 'auto') {
+      if (Math.round(curRow) >= maze.goalRow) { finishRun(); return; }
+      if (pendingAfterTrueStep) { const fn = pendingAfterTrueStep; pendingAfterTrueStep = null; fn(); return; }
+      const jIdx = maze.junctions.findIndex(j => j.row === Math.round(curRow));
+      if (jIdx !== -1 && jIdx >= activeJunctionIndex) { sfxStep(); arriveAtJunction(jIdx); return; }
+      sfxStep();
+    } else if (phase === 'branching') {
+      branchStepsWalked++;
+      const targetSteps = activeBranch.decoyLen;
+      if (branchStepsWalked >= targetSteps) {
+        triggerTrap();
+      } else {
+        sfxStep();
+        startAnim({row:curRow, col:curCol}, {row:curRow+1, col:curCol}, ROW_MS);
+      }
+    } else if (phase === 'retreating') {
+      branchStepsWalked = 0;
+      activeBranch.revealed = true;
+      arriveAtJunction(activeJunctionIndex);
+    }
+  }
+
+  function triggerTrap(){
+    phase = 'trapped';
+    sfxTrap();
+    setTimeout(() => {
+      phase = 'retreating';
+      const j = maze.junctions[activeJunctionIndex];
+      const seg = maze.segments[activeJunctionIndex];
+      startAnim({row:curRow, col:curCol}, {row:j.row, col:seg.col}, ROW_MS);
+    }, 650);
+  }
+
+  function checkHint(ts){
+    if (phase !== 'choose') { hintActive = false; return; }
+    if (ts - idleTimerStart >= 10000) {
+      if (!hintActive) sfxHint();
+      hintActive = true;
+    }
   }
 
   function finishRun(){
-    phase = 'finished';
+    running = false;
     cancelAnimationFrame(raf);
-    sfxDone();
-    setTimeout(() => showResult(), 500); // ちょっとした余韻をもたせてから結果表示
+    sfxGoal();
+    setTimeout(() => showResult(), 500);
   }
 
   function showResult(){
-    let tier = 'また ちょうせんしてね!';
-    if (correctCount === TOTAL_Q) tier = 'パーフェクト! すごい!!';
-    else if (correctCount >= TOTAL_Q - 1) tier = 'すごい! よくできました!';
-    else if (correctCount >= Math.ceil(TOTAL_Q/2)) tier = 'よくがんばったね!';
-    resultTitle.textContent = 'けっか';
-    finalScore.textContent = correctCount + '/' + TOTAL_Q;
-
     const bestKey = BEST_KEY_PREFIX + currentDiff;
     const best = Number(localStorage.getItem(bestKey) || 0);
-    const isNewBest = correctCount > best;
-    if (isNewBest) localStorage.setItem(bestKey, String(correctCount));
-    bestLine.textContent = DIFFS[currentDiff].label + ' さいこう: ' + (isNewBest ? correctCount : best) + '/' + TOTAL_Q + '　(' + tier + ')';
+    const isNewBest = best === 0 || elapsedMs < best;
+    if (isNewBest) localStorage.setItem(bestKey, String(Math.round(elapsedMs)));
+    finalTime.textContent = (elapsedMs/1000).toFixed(1) + 'びょう';
+    bestLine.textContent = DIFFS[currentDiff].label + ' さいこう: ' + ((isNewBest ? elapsedMs : best)/1000).toFixed(1) + 'びょう';
     newBestLabel.classList.toggle('hidden', !isNewBest);
-    bestVal.textContent = (isNewBest ? correctCount : best) + '/' + TOTAL_Q;
+    bestVal.textContent = ((isNewBest ? elapsedMs : best)/1000).toFixed(1);
     resultOverlay.classList.remove('hidden');
   }
 
-  function choose(side){
-    if (phase !== 'fork') return;
-    pickedSide = side;
-    const isCorrect = side === question.correctSide;
-    if (isCorrect) { correctCount++; sfxCorrect(); } else { sfxWrong(); }
-    correctVal.textContent = correctCount + '/' + TOTAL_Q;
-    phase = 'feedback';
-    phaseTime = 0;
-    roundIndex++;
-    setTimeout(() => { if (phase === 'feedback') nextRound(); }, 900);
-  }
+  // ---------------- rendering ----------------
+  const ROW_H = 42, COL_W = 54;
+  const MOLE_SCREEN_Y = H*0.8;
 
-  // ---------------- update / render ----------------
-  function update(dt){
-    phaseTime += dt;
-    tunnelDepth += dt * 0.001;
-    if (Math.floor(tunnelDepth*3) !== Math.floor((tunnelDepth - dt*0.001)*3)) sfxWalk();
-
-    if (phase === 'walk' && phaseTime > 1100) {
-      phase = 'fork'; phaseTime = 0;
-    }
-  }
-
-  function drawTunnel(t, forking, pickedSideNow){
-    // dirt cave background
-    const bg = ctx.createRadialGradient(W/2, H*0.38, 10, W/2, H*0.38, W*0.75);
-    bg.addColorStop(0, '#5b4028');
-    bg.addColorStop(0.6, '#2a1c11');
-    bg.addColorStop(1, '#140d08');
-    ctx.fillStyle = bg;
-    ctx.fillRect(0,0,W,H);
-
-    const vpX = W/2, vpY = H*0.36;
-    const ringCount = 6;
-    for (let i = ringCount; i >= 0; i--) {
-      let depth = ((i - (t*3 % 1)) / ringCount);
-      depth = ((depth % 1) + 1) % 1; // 0 = far, 1 = near
-      const scale = 0.06 + depth*0.94;
-      const rw = (W*0.62) * scale, rh = (H*0.62) * scale;
-      const alpha = 0.15 + depth*0.5;
-      ctx.strokeStyle = `rgba(120,84,52,${alpha})`;
-      ctx.lineWidth = 3 + depth*4;
-      ctx.beginPath();
-      ctx.ellipse(vpX, vpY + rh*0.15, rw*0.5, rh*0.5, 0, 0, Math.PI*2);
-      ctx.stroke();
-    }
-    // warm glow at the vanishing point (end of tunnel)
-    const glow = ctx.createRadialGradient(vpX, vpY, 2, vpX, vpY, 46);
-    glow.addColorStop(0, 'rgba(255,217,138,0.55)');
-    glow.addColorStop(1, 'rgba(255,217,138,0)');
-    ctx.fillStyle = glow;
-    ctx.beginPath(); ctx.arc(vpX, vpY, 46, 0, Math.PI*2); ctx.fill();
-
-    // floor dashes moving toward viewer
-    ctx.strokeStyle = 'rgba(255,217,138,0.35)';
-    ctx.lineWidth = 3;
-    for (let i=0;i<5;i++){
-      let depth = ((i - (t*3 % 1)) / 5);
-      depth = ((depth % 1) + 1) % 1;
-      const y = H*0.62 + depth*H*0.36;
-      const halfW = 6 + depth*40;
-      ctx.beginPath();
-      ctx.moveTo(vpX-halfW, y); ctx.lineTo(vpX+halfW, y);
-      ctx.globalAlpha = 0.2 + depth*0.5;
-      ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
-
-    if (forking) {
-      // two glowing side portals to choose from
-      const leftX = W*0.24, rightX = W*0.76, py = H*0.72, pr = 58;
-      drawPortal(leftX, py, pr, question.left, pickedSideNow, 'left');
-      drawPortal(rightX, py, pr, question.right, pickedSideNow, 'right');
-
-      // question sign banner
-      const bw = Math.min(W*0.86, 60 + question.text.length*16), bh = 54;
-      const bx = vpX - bw/2, by = H*0.12;
-      ctx.fillStyle = '#6B4A2E';
-      roundRect(bx-4, by-4, bw+8, bh+8, 14); ctx.fill();
-      ctx.fillStyle = '#FFFDF7';
-      roundRect(bx, by, bw, bh, 12); ctx.fill();
-      ctx.fillStyle = '#1B4332';
-      ctx.font = 'bold 26px "Baloo 2", sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(question.text, vpX, by + bh/2 + 1);
-    }
-  }
+  function screenX(col){ return W/2 + col*COL_W; }
+  function screenY(row){ return MOLE_SCREEN_Y - (row - curRow)*ROW_H; }
 
   function roundRect(x,y,w,h,r){
     ctx.beginPath();
@@ -455,44 +432,138 @@
     ctx.closePath();
   }
 
-  function drawPortal(cx, cy, r, value, pickedSideNow, side){
-    let ringColor = '#FFD98A', fillInner = 'rgba(255,217,138,0.18)';
-    if (pickedSideNow) {
-      const isThisCorrect = side === question.correctSide;
-      if (side === pickedSideNow) {
-        ringColor = isThisCorrect ? '#5FBF6B' : '#E25555';
-        fillInner = isThisCorrect ? 'rgba(95,191,107,0.35)' : 'rgba(226,85,85,0.3)';
-      } else if (isThisCorrect) {
-        // reveal the correct one even if the player picked the other side
-        ringColor = '#5FBF6B';
-        fillInner = 'rgba(95,191,107,0.22)';
+  function drawCorridorCell(cx, cy, revealedBad){
+    ctx.fillStyle = revealedBad ? '#4a3020' : '#C9A876';
+    roundRect(cx-COL_W*0.38, cy-ROW_H*0.55, COL_W*0.76, ROW_H*1.05, 8);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 2; ctx.stroke();
+    if (revealedBad) {
+      ctx.strokeStyle = '#B71C1C'; ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(cx-14, cy-14); ctx.lineTo(cx+14, cy+14);
+      ctx.moveTo(cx+14, cy-14); ctx.lineTo(cx-14, cy+14);
+      ctx.stroke();
+    }
+  }
+
+  function drawBackground(){
+    const bg = ctx.createRadialGradient(W/2, H*0.4, 10, W/2, H*0.4, W*0.85);
+    bg.addColorStop(0, '#5b4028'); bg.addColorStop(0.65, '#2a1c11'); bg.addColorStop(1, '#140d08');
+    ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+  }
+
+  function drawGoalIfVisible(){
+    if (!maze) return;
+    if (maze.goalRow - curRow > BRANCH_VISUAL_LEN+1) return;
+    const trueEnd = maze.truePathCells[maze.truePathCells.length-1];
+    const cx = screenX(trueEnd.col), cy = screenY(maze.goalRow);
+    if (cy < -40 || cy > H+40) return;
+    const glow = ctx.createRadialGradient(cx,cy,2,cx,cy,50);
+    glow.addColorStop(0, 'rgba(255,217,138,0.8)'); glow.addColorStop(1, 'rgba(255,217,138,0)');
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(cx,cy,50,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#FFFDF7'; ctx.font = 'bold 22px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('🏁', cx, cy+8);
+  }
+
+  function drawStraightAhead(){
+    const seg = maze.segments[activeSegmentIndex];
+    if (!seg) return;
+    const startRow = Math.floor(curRow);
+    const endRow = Math.min(seg.toRow, startRow + BRANCH_VISUAL_LEN);
+    for (let r = startRow; r <= endRow; r++){
+      const cy = screenY(r);
+      if (cy < -30 || cy > H+30) continue;
+      drawCorridorCell(screenX(seg.col), cy, false);
+    }
+  }
+
+  function drawJunctionBranches(j, highlight){
+    const baseRow = j.row;
+    for (const b of j.branches) {
+      for (let step = 1; step <= BRANCH_VISUAL_LEN; step++) {
+        const r = baseRow + step;
+        const cy = screenY(r);
+        if (cy < -30 || cy > H+30) continue;
+        drawCorridorCell(screenX(b.col), cy, b.revealed && step >= b.decoyLen);
+        if (b.revealed && step === b.decoyLen) drawTrapMark(screenX(b.col), cy, b.trapType);
       }
     }
+    if (highlight) {
+      for (const b of j.branches) {
+        if (b.revealed) continue;
+        const cx = screenX(b.col), cy = screenY(baseRow+1);
+        ctx.save();
+        ctx.globalAlpha = 0.55 + Math.sin(performance.now()/220)*0.25;
+        ctx.strokeStyle = '#FFD98A'; ctx.lineWidth = 5;
+        roundRect(cx-COL_W*0.42, cy-ROW_H*0.6, COL_W*0.84, ROW_H*1.15, 10);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+
+  function drawTrapMark(cx, cy, type){
+    if (type === 'pit') {
+      ctx.fillStyle = '#0d0805';
+      ctx.beginPath(); ctx.ellipse(cx,cy,18,12,0,0,Math.PI*2); ctx.fill();
+    } else if (type === 'wall') {
+      ctx.fillStyle = '#6B5B4A';
+      ctx.fillRect(cx-COL_W*0.36, cy-ROW_H*0.5, COL_W*0.72, ROW_H*0.5);
+    } else {
+      ctx.fillStyle = '#8B8378';
+      ctx.beginPath(); ctx.arc(cx, cy-6, 14, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.2)';
+      ctx.beginPath(); ctx.arc(cx-4, cy-10, 4, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  function drawHintTrail(){
+    if (!hintActive) return;
     ctx.save();
-    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
-    ctx.fillStyle = fillInner; ctx.fill();
-    ctx.lineWidth = 6; ctx.strokeStyle = ringColor; ctx.stroke();
-    ctx.fillStyle = '#FFFDF7';
-    ctx.font = 'bold 30px "Baloo 2", sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(String(value), cx, cy+2);
+    const pulse = 0.5 + Math.sin(performance.now()/200)*0.3;
+    ctx.strokeStyle = `rgba(255,217,138,${0.5+pulse*0.3})`;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    let started = false;
+    for (const cell of maze.truePathCells) {
+      if (cell.row < curRow - 1) continue;
+      const cx = screenX(cell.col), cy = screenY(cell.row);
+      if (cy < -60 || cy > H+60) continue;
+      if (!started) { ctx.moveTo(cx,cy); started = true; } else ctx.lineTo(cx,cy);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawMole(){
+    const cx = screenX(curCol), cy = MOLE_SCREEN_Y;
+    const bob = Math.sin(performance.now()/110) * (phase==='auto'||phase==='branching'||phase==='retreating' ? 2.5 : 0);
+    ctx.save();
+    ctx.translate(cx, cy+bob);
+    ctx.fillStyle = '#8B5F49';
+    ctx.beginPath(); ctx.ellipse(-9,10,6,9,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(9,10,6,9,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#A9745B';
+    ctx.beginPath(); ctx.ellipse(0,0,17,19,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#7A5540';
+    ctx.beginPath(); ctx.ellipse(-9,-15,5,6,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(9,-15,5,6,0,0,Math.PI*2); ctx.fill();
     ctx.restore();
   }
 
   function render(){
-    const forking = (phase === 'fork' || phase === 'feedback') && question;
-    drawTunnel(tunnelDepth, forking, phase === 'feedback' ? pickedSide : null);
-  }
-
-  function loop(ts){
-    if (phase === 'finished' || phase === 'idle') return;
-    if (!last) last = ts;
-    const dt = Math.min(40, ts - last);
-    last = ts;
-    update(dt);
-    render();
-    if (phase === 'walk' && !question) question = makeQuestion();
-    raf = requestAnimationFrame(loop);
+    drawBackground();
+    if (!maze) { return; }
+    if (phase === 'auto') {
+      drawStraightAhead();
+    } else if (phase === 'choose') {
+      drawJunctionBranches(maze.junctions[activeJunctionIndex], true);
+    } else if (phase === 'branching' || phase === 'trapped' || phase === 'retreating') {
+      drawJunctionBranches(maze.junctions[activeJunctionIndex], false);
+    }
+    drawGoalIfVisible();
+    drawHintTrail();
+    drawMole();
   }
 
   // ---------------- input ----------------
@@ -512,16 +583,23 @@
 
   document.addEventListener('pointerdown', (e) => {
     if (e.target.closest('button, a')) return;
-    if (phase !== 'fork') return;
+    if (phase !== 'choose') return;
     e.preventDefault();
     const rect = field.getBoundingClientRect();
-    const relX = e.clientX - rect.left;
-    const side = relX < rect.width/2 ? 'left' : 'right';
-    choose(side);
+    const relX = (e.clientX - rect.left) / rect.width * W;
+    const j = maze.junctions[activeJunctionIndex];
+    let best = null, bestDist = Infinity;
+    for (const b of j.branches) {
+      const bx = screenX(b.col);
+      const dist = Math.abs(bx - relX);
+      if (dist < bestDist) { bestDist = dist; best = b; }
+    }
+    if (best) chooseBranch(best);
   }, { passive:false });
 
   // idle first paint
-  drawTunnel(0, false, null);
+  resetRun('normal');
+  drawBackground();
 })();
 </script>
 </body>
