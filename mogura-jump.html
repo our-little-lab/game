@@ -15,7 +15,7 @@
     --mole-body:#A9745B; --mole-belly:#EAD1B0; --mole-nose:#F2A0A0;
     --accent:#FF6B6B; --accent-dark:#E25555;
     --gold:#FFC93C; --ink:#1B4332; --card:#FFFDF7;
-    --beam:#7B61FF; --beam-dark:#5A43D6;
+    --shield:#FFD23F; --shield-dark:#B8860B;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;}
   html,body{margin:0; height:100%; overscroll-behavior:none; touch-action:manipulation;}
@@ -91,7 +91,7 @@
     <div class="howto">
       <div>👉 <b>タップ</b>でジャンプ、あなあきに気をつけて</div>
       <div>👉 ⭐を取ると<b>くうちゅうでもう1かいジャンプ</b>できる</div>
-      <div>👉 💥を取ると<b>てきにぶつかってもたおせる</b></div>
+      <div>👉 🛡️を取ると<b>なにかにぶつかっても1かいだけ むてき</b></div>
       <div>👉 とりやトンネルは<b>ジャンプせずに</b>とおろう</div>
       <div>👉 ライフは3つ、なくなったらおしまい</div>
     </div>
@@ -149,6 +149,7 @@
   const sfxHit = () => beep(170, 0.3, 'sawtooth', 0.17);
   const sfxItem = () => { beep(660,0.08,'sine',0.16); beep(880,0.1,'sine',0.16,0.08); };
   const sfxZap = () => { beep(1000,0.06,'square',0.12); beep(1400,0.08,'square',0.1,0.05); };
+  const sfxShieldBlock = () => { beep(880,0.05,'sine',0.16); beep(1200,0.09,'sine',0.14,0.05); };
   const sfxStart = () => { beep(392,0.1,'sine',0.15); beep(523,0.12,'sine',0.15,0.1); };
 
   muteBtn.addEventListener('click', () => { muted = !muted; muteBtn.textContent = muted ? '🔇' : '🔊'; });
@@ -159,14 +160,17 @@
   const DOUBLE_JUMP_V = -560;
   const SPEED_START = 230;
   const SPEED_MAX = 520;
+  const SPEED_RAND_MIN = 380;
+  const SPEED_RAND_MAX = 640;
   const MAX_DJ_CHARGES = 2;
-  const MAX_BEAM_CHARGES = 3;
+  const MAX_SHIELD_CHARGES = 3;
 
   let mole, obstacles, items, hills, clouds, speed, score, lives, invuln;
   let obsTimer, nextObsIn, itemTimer, nextItemIn;
-  let djCharges, beamCharges, extraJumpUsed;
+  let djCharges, shieldCharges, extraJumpUsed;
   let particles;
   let pendingGameOver, gameOverDelay;
+  let speedRandomMode, speedRolledForGap;
 
   function resetWorld(){
     mole = { x: 90, y: GROUND_Y, vy: 0, r: 20, grounded: true, squash: 0, rot:0 };
@@ -176,7 +180,8 @@
     speed = SPEED_START; score = 0; lives = 3; invuln = 0;
     obsTimer = 0; nextObsIn = 1300;
     itemTimer = 0; nextItemIn = 5500;
-    djCharges = 0; beamCharges = 0; extraJumpUsed = false;
+    djCharges = 0; shieldCharges = 0; extraJumpUsed = false;
+    speedRandomMode = false; speedRolledForGap = true;
     pendingGameOver = false; gameOverDelay = 0;
     scoreVal.textContent = '0';
     heartsVal.textContent = '❤️❤️❤️';
@@ -230,7 +235,7 @@
     const st = stageOf(score);
     const options = [];
     if (st >= 3 && djCharges < MAX_DJ_CHARGES) options.push('dj');
-    if (st >= 4 && beamCharges < MAX_BEAM_CHARGES) options.push('beam');
+    if (st >= 4 && shieldCharges < MAX_SHIELD_CHARGES) options.push('shield');
     if (!options.length) return;
     const type = options[Math.floor(Math.random()*options.length)];
     items.push({ type, x:W+20, y:GROUND_Y-30, r:14, bob:Math.random()*10, taken:false, sparkleTimer:0 });
@@ -292,7 +297,26 @@
       return;
     }
 
-    speed = Math.min(SPEED_MAX, SPEED_START + score*9);
+    const baseSpeed = SPEED_START + score*9;
+    if (!speedRandomMode && baseSpeed >= SPEED_MAX) {
+      speedRandomMode = true;
+      speedRolledForGap = false; // trigger a first reroll as soon as it's safe
+    }
+    if (!speedRandomMode) {
+      speed = Math.min(SPEED_MAX, baseSpeed);
+    } else {
+      // Only allowed to change speed when no obstacle is currently between its
+      // spawn and the point it's been passed — never mid-dodge.
+      const hasActiveObstacle = obstacles.some(o => !o.passed);
+      if (!hasActiveObstacle) {
+        if (!speedRolledForGap) {
+          speed = SPEED_RAND_MIN + Math.random() * (SPEED_RAND_MAX - SPEED_RAND_MIN);
+          speedRolledForGap = true;
+        }
+      } else {
+        speedRolledForGap = false;
+      }
+    }
     if (invuln > 0) invuln -= dt;
 
     mole.vy += GRAVITY * (dt/1000);
@@ -338,7 +362,7 @@
       it.sparkleTimer += dt;
       if (it.sparkleTimer > 130) {
         it.sparkleTimer = 0;
-        spawnSparkle(it.x, it.y, it.type === 'dj' ? '#B9E3FF' : '#E4D6FF');
+        spawnSparkle(it.x, it.y, it.type === 'dj' ? '#B9E3FF' : '#FFE9A8');
       }
     }
     items = items.filter(it => it.x > -30 && !it.taken);
@@ -359,7 +383,7 @@
       if (Math.hypot(dxp,dyp) < mole.r + it.r) {
         it.taken = true;
         if (it.type === 'dj') djCharges = Math.min(MAX_DJ_CHARGES, djCharges+1);
-        else beamCharges = Math.min(MAX_BEAM_CHARGES, beamCharges+1);
+        else shieldCharges = Math.min(MAX_SHIELD_CHARGES, shieldCharges+1);
         sfxItem();
         spawnParticles(it.x, it.y, it.type==='dj' ? '#7EC8FF' : '#B79CFF', 8);
       }
@@ -381,15 +405,21 @@
           if (mx1 > ox0 && mx0 < ox1 && my1 > oy0 && my0 < oy1) hit = true;
         }
         if (hit) {
-          if (o.kind === 'enemy' && beamCharges > 0) {
-            beamCharges--; o.alive = false; o.passed = true;
-            score += 2; scoreVal.textContent = score;
-            sfxZap(); spawnParticles(o.x+o.w/2, o.y, '#FFD23F', 10);
+          if (shieldCharges > 0) {
+            shieldCharges--;
+            invuln = 500; // brief grace period so a single wide hazard can't drain multiple charges in one pass
+            if (o.kind === 'enemy') {
+              o.alive = false; o.passed = true;
+              score += 2; scoreVal.textContent = score;
+              sfxZap(); spawnParticles(o.x+o.w/2, o.y, '#FFD23F', 10);
+            } else {
+              sfxShieldBlock(); spawnParticles(mole.x, mole.y-mole.r, '#FFD23F', 8);
+            }
           } else {
             loseLife();
           }
-          // Resolve only one collision per frame: once the mole is hit (or a beam
-          // kill happens), stop checking the rest so a nearby unrelated obstacle
+          // Resolve only one collision per frame: once the mole is hit (or a shield
+          // block happens), stop checking the rest so a nearby unrelated obstacle
           // can never be blamed for damage that came from something else.
           break;
         }
@@ -487,7 +517,7 @@
   function drawItem(it){
     const y = it.y + Math.sin(it.bob/160)*6;
     const pulse = 0.75 + 0.25*Math.sin(it.bob/110);
-    const glowColor = it.type === 'dj' ? 'rgba(126,200,255,ALPHA)' : 'rgba(183,156,255,ALPHA)';
+    const glowColor = it.type === 'dj' ? 'rgba(126,200,255,ALPHA)' : 'rgba(255,210,63,ALPHA)';
     // soft glowing halo behind the item, distinct from any solid-colored enemy
     ctx.save();
     const haloR = 24 * pulse;
@@ -510,10 +540,20 @@
       }
       ctx.closePath(); ctx.fill(); ctx.restore();
     } else {
-      const g = ctx.createRadialGradient(it.x,y,2,it.x,y,16);
-      g.addColorStop(0,'#E4D6FF'); g.addColorStop(1,'#7B61FF');
+      // shield / invincibility item
+      ctx.save(); ctx.translate(it.x, y);
+      const g = ctx.createLinearGradient(0,-14,0,14);
+      g.addColorStop(0,'#FFF1B8'); g.addColorStop(1,'#FFD23F');
       ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(it.x,y,13,0,Math.PI*2); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(0,-14);
+      ctx.quadraticCurveTo(12,-10,12,-2);
+      ctx.quadraticCurveTo(12,9,0,15);
+      ctx.quadraticCurveTo(-12,9,-12,-2);
+      ctx.quadraticCurveTo(-12,-10,0,-14);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#B8860B'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.restore();
     }
     // little twinkle mark on top
     ctx.fillStyle = 'rgba(255,255,255,0.9)';
@@ -543,6 +583,14 @@
   }
   function drawMole(){
     if (!pendingGameOver && invuln > 0 && Math.floor(invuln/90)%2===0) return; // blink while invulnerable
+    if (shieldCharges > 0 && !pendingGameOver) {
+      const pulse = 0.5 + 0.3*Math.sin(performance.now()/180);
+      const glow = ctx.createRadialGradient(mole.x, mole.y-mole.r*0.4, mole.r*0.6, mole.x, mole.y-mole.r*0.4, mole.r*1.7);
+      glow.addColorStop(0, `rgba(255,210,63,${0.35+pulse*0.2})`);
+      glow.addColorStop(1, 'rgba(255,210,63,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(mole.x, mole.y-mole.r*0.4, mole.r*1.7, 0, Math.PI*2); ctx.fill();
+    }
     const squashY = 1 - mole.squash*0.35, squashX = 1 + mole.squash*0.25;
     ctx.save(); ctx.translate(mole.x, mole.y); ctx.scale(squashX, squashY);
     if (pendingGameOver) ctx.rotate(mole.rot * Math.PI * 0.42);
@@ -572,10 +620,10 @@
       ctx.fillText('⭐x'+djCharges, x+8, y+18);
       x += 66;
     }
-    if (beamCharges > 0) {
+    if (shieldCharges > 0) {
       ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x,y,58,26,10) : ctx.rect(x,y,58,26); ctx.fill();
-      ctx.fillStyle = '#7B61FF'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign='left';
-      ctx.fillText('💥x'+beamCharges, x+8, y+18);
+      ctx.fillStyle = '#B8860B'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign='left';
+      ctx.fillText('🛡️x'+shieldCharges, x+8, y+18);
     }
   }
 
