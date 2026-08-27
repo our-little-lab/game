@@ -604,10 +604,24 @@
     timeVal.textContent = secs;
     timeBadge.classList.toggle('low', secs <= 10);
     if (timeLeft <= 0) {
-      endGame();
+      timeUp();
       return;
     }
     tickTimer = requestAnimationFrame(tick);
+  }
+
+  function timeUp(){
+    running = false;
+    clearTimeout(spawnTimer);
+    cancelAnimationFrame(tickTimer);
+    holes.forEach(resetHole);
+    countdownOverlay.classList.remove('hidden');
+    countdownText.textContent = 'じかんぎれ!';
+    sfxCount();
+    setTimeout(() => {
+      countdownOverlay.classList.add('hidden');
+      endGame();
+    }, 900);
   }
 
   function prepRound(diff){
