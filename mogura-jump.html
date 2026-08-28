@@ -76,9 +76,10 @@
 
 <div class="stage">
   <div class="hud">
-    <div class="badge"><div class="label">きょり</div><div class="value" id="distVal">0.00</div></div>
+    <div class="badge"><div class="label">きょり(m)</div><div class="value" id="distVal">0</div></div>
     <div class="badge"><div class="label">ライフ</div><div class="hearts" id="heartsVal">❤️❤️❤️</div></div>
     <button class="mute-btn" id="muteBtn" aria-label="おとをけす">🔊</button>
+    <button class="mute-btn" id="restartBtn" aria-label="さいしょから やりなおす">🔄</button>
     <div class="badge time" id="timeBadge"><div class="label">のこり</div><div class="value" id="timeVal">60</div></div>
   </div>
   <div class="field"><canvas id="game" width="480" height="300"></canvas></div>
@@ -101,12 +102,18 @@
   </div>
 </div>
 
+<div class="overlay hidden" id="countdownOverlay">
+  <div class="panel" style="padding:44px 30px;">
+    <div id="countdownText" style="font-family:'Baloo 2', sans-serif; font-size:38px; color:var(--ink);">よーい...</div>
+  </div>
+</div>
+
 <div class="overlay hidden" id="resultOverlay">
   <div class="panel">
     <h1 id="resultTitle">おしまい!</h1>
-    <div class="result-score" id="finalDistance">0.00<span style="font-size:20px;">km</span></div>
+    <div class="result-score" id="finalDistance">0<span style="font-size:20px;">m</span></div>
     <div class="new-best hidden" id="newBestLabel">✨ さいこうきろく! ✨</div>
-    <div class="result-best" id="bestLine">さいこう: 0.00km</div>
+    <div class="result-best" id="bestLine">さいこう: 0m</div>
     <button class="big-btn" id="retryBtn">もういちど</button>
   </div>
 </div>
@@ -124,10 +131,13 @@
   const timeVal = document.getElementById('timeVal');
   const timeBadge = document.getElementById('timeBadge');
   const startOverlay = document.getElementById('startOverlay');
+  const countdownOverlay = document.getElementById('countdownOverlay');
+  const countdownText = document.getElementById('countdownText');
   const resultOverlay = document.getElementById('resultOverlay');
   const startBtn = document.getElementById('startBtn');
   const retryBtn = document.getElementById('retryBtn');
   const muteBtn = document.getElementById('muteBtn');
+  const restartBtn = document.getElementById('restartBtn');
   const resultTitle = document.getElementById('resultTitle');
   const finalDistance = document.getElementById('finalDistance');
   const bestLine = document.getElementById('bestLine');
@@ -156,6 +166,7 @@
   const sfxShieldBlock = () => { beep(880,0.05,'sine',0.16); beep(1200,0.09,'sine',0.14,0.05); };
   const sfxStart = () => { beep(392,0.1,'sine',0.15); beep(523,0.12,'sine',0.15,0.1); };
   const sfxTimeUp = () => { beep(659,0.1,'sine',0.18); beep(880,0.12,'sine',0.18,0.1); beep(1046,0.16,'sine',0.18,0.2); };
+  const sfxCount = () => beep(440, 0.12, 'sine', 0.15);
 
   muteBtn.addEventListener('click', () => { muted = !muted; muteBtn.textContent = muted ? '🔇' : '🔊'; });
 
@@ -172,6 +183,8 @@
   const HIT_SLOWDOWN_MULT = 0.35; // getting hit cuts speed sharply
   const BOOST_KMH = 30;        // dj-use / star pickup instant boost
   const BOOST_CEILING = TARGET_KMH + BOOST_KMH; // 330, absolute speed ceiling
+  const STAR_BOOST_MS = 3000;  // star: keeps pulling speed toward the ceiling for this long
+  const FEATHER_BOOST_MS = 2200; // feather: shorter pull toward the ceiling
   const MAX_DJ_CHARGES = 3;
   const MAX_ITEM_SPAWNS = 3;   // at most 3 of each item type ever appear in a run
   const INVINCIBLE_MS = 3000;
@@ -179,7 +192,7 @@
 
   let mole, obstacles, items, hills, clouds, speedKmh, distanceKm, lives, invuln;
   let obsTimer, nextObsIn, itemTimer, nextItemIn;
-  let djCharges, djSpawnedCount, starSpawnedCount, invincibleMs, extraJumpUsed;
+  let djCharges, djSpawnedCount, starSpawnedCount, invincibleMs, boostMs, extraJumpUsed;
   let particles;
   let pendingGameOver, gameOverDelay;
   let timeLeftMs, pendingFinish, finishDelay;
@@ -192,10 +205,10 @@
     speedKmh = 0; distanceKm = 0; lives = 3; invuln = 0;
     obsTimer = 0; nextObsIn = 1300;
     itemTimer = 0; nextItemIn = 5500;
-    djCharges = 0; djSpawnedCount = 0; starSpawnedCount = 0; invincibleMs = 0; extraJumpUsed = false;
+    djCharges = 0; djSpawnedCount = 0; starSpawnedCount = 0; invincibleMs = 0; boostMs = 0; extraJumpUsed = false;
     pendingGameOver = false; gameOverDelay = 0;
     timeLeftMs = RUN_TIME_MS; pendingFinish = false; finishDelay = 0;
-    distVal.textContent = '0.00';
+    distVal.textContent = '0';
     heartsVal.textContent = '❤️❤️❤️';
     timeVal.textContent = Math.ceil(RUN_TIME_MS/1000);
     timeBadge.classList.remove('low');
@@ -245,7 +258,15 @@
     }
   }
 
+  const SPAWN_SAFE_GAP = 70;
+  function spawnXIsClear(x){
+    for (const o of obstacles) { if (Math.abs(o.x + o.w/2 - x) < (o.w/2 + SPAWN_SAFE_GAP)) return false; }
+    for (const it of items) { if (Math.abs(it.x - x) < (it.r + SPAWN_SAFE_GAP)) return false; }
+    return true;
+  }
+
   function spawnItem(){
+    if (!spawnXIsClear(W+20)) return; // avoid landing on top of an obstacle / pit — try again next timer tick
     const st = stageOf((RUN_TIME_MS - timeLeftMs)/1000);
     const options = [];
     if (st >= 3 && djSpawnedCount < MAX_ITEM_SPAWNS) options.push('dj');
@@ -264,6 +285,7 @@
     } else if (!extraJumpUsed && djCharges > 0) {
       djCharges--; extraJumpUsed = true; mole.vy = DOUBLE_JUMP_V;
       speedKmh = Math.min(BOOST_CEILING, speedKmh + BOOST_KMH);
+      boostMs = Math.max(boostMs, FEATHER_BOOST_MS);
       sfxDoubleJump();
       spawnParticles(mole.x, mole.y - mole.r, '#7EC8FF', 6);
     }
@@ -331,18 +353,24 @@
     if (timeLeftMs <= 0) {
       pendingFinish = true; finishDelay = 900;
       sfxTimeUp();
+      countdownOverlay.classList.remove('hidden');
+      countdownText.textContent = 'タイムアップ!';
       return;
     }
 
-    // speed (km/h) naturally trends toward TARGET_KMH from either direction
+    // speed (km/h) naturally trends toward a target: normally 300, but while a
+    // star/feather boost window is active the target is pulled up to 330 so the
+    // mole keeps accelerating for the whole boost duration, not just an instant kick.
     if (invincibleMs > 0) invincibleMs = Math.max(0, invincibleMs - dt);
-    if (speedKmh < TARGET_KMH) {
-      speedKmh = Math.min(TARGET_KMH, speedKmh + ACCEL_KMH_S*(dt/1000));
-    } else if (speedKmh > TARGET_KMH) {
-      speedKmh = Math.max(TARGET_KMH, speedKmh - DECAY_KMH_S*(dt/1000));
+    if (boostMs > 0) boostMs = Math.max(0, boostMs - dt);
+    const speedTarget = boostMs > 0 ? BOOST_CEILING : TARGET_KMH;
+    if (speedKmh < speedTarget) {
+      speedKmh = Math.min(speedTarget, speedKmh + ACCEL_KMH_S*(dt/1000));
+    } else if (speedKmh > speedTarget) {
+      speedKmh = Math.max(speedTarget, speedKmh - DECAY_KMH_S*(dt/1000));
     }
     distanceKm += speedKmh * (dt/3600000);
-    distVal.textContent = distanceKm.toFixed(2);
+    distVal.textContent = Math.round(distanceKm*1000);
 
     if (invuln > 0) invuln -= dt;
 
@@ -366,7 +394,9 @@
       // keep enemies clear of tight clusters so a beam kill is never confused with a nearby hazard
       if (st >= 3 && kind !== 'enemy' && Math.random() < 0.22) interval *= 0.6;
       nextObsIn = interval;
-      spawnObstacleOfKind(kind);
+      if (!items.some(it => Math.abs(it.x - (W+20)) < (it.r + SPAWN_SAFE_GAP))) {
+        spawnObstacleOfKind(kind);
+      }
     }
 
     itemTimer += dt;
@@ -413,6 +443,7 @@
           djCharges = Math.min(MAX_DJ_CHARGES, djCharges+1);
         } else {
           invincibleMs = INVINCIBLE_MS;
+          boostMs = Math.max(boostMs, STAR_BOOST_MS);
           speedKmh = Math.min(BOOST_CEILING, speedKmh + BOOST_KMH);
         }
         sfxItem();
@@ -697,25 +728,38 @@
     raf = requestAnimationFrame(loop);
   }
 
+  let countdownTimer1 = null, countdownTimer2 = null;
+
   function startGame(){
     resetWorld();
-    running = true; last = 0;
     startOverlay.classList.add('hidden'); resultOverlay.classList.add('hidden');
-    sfxStart();
-    raf = requestAnimationFrame(loop);
+    countdownOverlay.classList.remove('hidden');
+    countdownText.textContent = 'よーい...';
+    sfxCount();
+    clearTimeout(countdownTimer1); clearTimeout(countdownTimer2);
+    countdownTimer1 = setTimeout(() => {
+      countdownText.textContent = 'スタート!';
+      sfxStart();
+      countdownTimer2 = setTimeout(() => {
+        countdownOverlay.classList.add('hidden');
+        running = true; last = 0;
+        raf = requestAnimationFrame(loop);
+      }, 480);
+    }, 700);
   }
 
   function finishRun(reason){
     running = false; cancelAnimationFrame(raf);
     pendingGameOver = false; pendingFinish = false;
+    countdownOverlay.classList.add('hidden');
 
     const best = Number(localStorage.getItem(BEST_KEY) || 0);
     const isNewBest = distanceKm > best;
     if (isNewBest) localStorage.setItem(BEST_KEY, String(distanceKm));
 
     resultTitle.textContent = reason === 'timeup' ? 'タイムアップ!' : 'ぶつかった…';
-    finalDistance.innerHTML = distanceKm.toFixed(2) + '<span style="font-size:20px;">km</span>';
-    bestLine.textContent = 'さいこう: ' + (isNewBest ? distanceKm : best).toFixed(2) + 'km';
+    finalDistance.innerHTML = Math.round(distanceKm*1000) + '<span style="font-size:20px;">m</span>';
+    bestLine.textContent = 'さいこう: ' + Math.round((isNewBest ? distanceKm : best)*1000) + 'm';
     newBestLabel.classList.toggle('hidden', !isNewBest);
     resultOverlay.classList.remove('hidden');
   }
@@ -724,6 +768,11 @@
 
   startBtn.addEventListener('click', () => { ensureAudio(); startGame(); });
   retryBtn.addEventListener('click', () => { ensureAudio(); startGame(); });
+  restartBtn.addEventListener('click', () => {
+    if (!running) return;
+    cancelAnimationFrame(raf);
+    ensureAudio(); startGame();
+  });
 
   // Tap anywhere on the page (including blank margins outside the game card) to jump.
   // Buttons/links keep their own click behavior and are excluded here.
