@@ -179,12 +179,13 @@
   const PX_PER_KMH = 1.7;
   const TARGET_KMH = 300;      // speed naturally trends toward this
   const ACCEL_KMH_S = 30;      // 0 -> 300 in ~10s
-  const DECAY_KMH_S = 40;      // how fast an over-300 boost settles back down
   const HIT_SLOWDOWN_MULT = 0.35; // getting hit cuts speed sharply
-  const BOOST_KMH = 30;        // dj-use / star pickup instant boost
-  const BOOST_CEILING = TARGET_KMH + BOOST_KMH; // 330, absolute speed ceiling
-  const STAR_BOOST_MS = 3000;  // star: keeps pulling speed toward the ceiling for this long
-  const FEATHER_BOOST_MS = 2200; // feather: shorter pull toward the ceiling
+  const BOOST_KMH = 30;        // dj-use / star pickup instant kick
+  const BOOST_CEILING = TARGET_KMH + BOOST_KMH; // 330, feather's ceiling
+  const STAR_TARGET_KMH = 500; // star: speed is pulled all the way up here
+  const STAR_ACCEL_KMH_S = 150;// fast ramp so it visibly reaches ~500 within the window
+  const STAR_DECAY_KMH_S = 67; // ~3s to unwind from 500 back down to 300
+  const FEATHER_BOOST_MS = 2200; // feather: shorter pull toward BOOST_CEILING
   const MAX_DJ_CHARGES = 3;
   const MAX_ITEM_SPAWNS = 3;   // at most 3 of each item type ever appear in a run
   const INVINCIBLE_MS = 3000;
@@ -358,16 +359,23 @@
       return;
     }
 
-    // speed (km/h) naturally trends toward a target: normally 300, but while a
-    // star/feather boost window is active the target is pulled up to 330 so the
-    // mole keeps accelerating for the whole boost duration, not just an instant kick.
+    // speed (km/h) naturally trends toward a target. A star pickup pulls it
+    // dramatically up toward 500 for its 3s window (fast accel, slow ~3s unwind
+    // back to 300 once it ends); a feather gives a smaller, shorter pull to 330.
     if (invincibleMs > 0) invincibleMs = Math.max(0, invincibleMs - dt);
     if (boostMs > 0) boostMs = Math.max(0, boostMs - dt);
-    const speedTarget = boostMs > 0 ? BOOST_CEILING : TARGET_KMH;
+    let speedTarget, accelRate, decayRate;
+    if (invincibleMs > 0) {
+      speedTarget = STAR_TARGET_KMH; accelRate = STAR_ACCEL_KMH_S; decayRate = STAR_DECAY_KMH_S;
+    } else if (boostMs > 0) {
+      speedTarget = BOOST_CEILING; accelRate = STAR_ACCEL_KMH_S; decayRate = STAR_DECAY_KMH_S;
+    } else {
+      speedTarget = TARGET_KMH; accelRate = ACCEL_KMH_S; decayRate = STAR_DECAY_KMH_S;
+    }
     if (speedKmh < speedTarget) {
-      speedKmh = Math.min(speedTarget, speedKmh + ACCEL_KMH_S*(dt/1000));
+      speedKmh = Math.min(speedTarget, speedKmh + accelRate*(dt/1000));
     } else if (speedKmh > speedTarget) {
-      speedKmh = Math.max(speedTarget, speedKmh - DECAY_KMH_S*(dt/1000));
+      speedKmh = Math.max(speedTarget, speedKmh - decayRate*(dt/1000));
     }
     distanceKm += speedKmh * (dt/3600000);
     distVal.textContent = Math.round(distanceKm*1000);
@@ -443,8 +451,7 @@
           djCharges = Math.min(MAX_DJ_CHARGES, djCharges+1);
         } else {
           invincibleMs = INVINCIBLE_MS;
-          boostMs = Math.max(boostMs, STAR_BOOST_MS);
-          speedKmh = Math.min(BOOST_CEILING, speedKmh + BOOST_KMH);
+          speedKmh = Math.min(STAR_TARGET_KMH, speedKmh + BOOST_KMH);
         }
         sfxItem();
         spawnParticles(it.x, it.y, it.type==='dj' ? '#7EC8FF' : '#FFD23F', 8);
@@ -707,6 +714,36 @@
     }
   }
 
+  function drawSpeedLines(){
+    if (invincibleMs <= 0) return;
+    const intensity = Math.max(0, Math.min(1, (speedKmh - TARGET_KMH) / (STAR_TARGET_KMH - TARGET_KMH)));
+    if (intensity <= 0.02) return;
+    ctx.save();
+    ctx.strokeStyle = `rgba(255,255,255,${0.55*intensity})`;
+    ctx.lineWidth = 2.2;
+    ctx.lineCap = 'round';
+    const t = performance.now();
+    const rows = 9;
+    for (let i=0;i<rows;i++){
+      const y = 18 + i*((H-36)/(rows-1)) + Math.sin(i*17.3)*4;
+      const len = 46 + (i%3)*22 + intensity*30;
+      const cycle = W + len + 160;
+      const xEnd = W + 40 - ((t*(1.1+intensity*0.9) + i*211) % cycle);
+      const xStart = xEnd + len;
+      ctx.beginPath();
+      ctx.moveTo(xStart, y);
+      ctx.lineTo(xEnd, y);
+      ctx.stroke();
+    }
+    // subtle radial flash from the mole outward, reinforcing the burst-of-speed feel
+    const glow = ctx.createRadialGradient(mole.x, mole.y-mole.r, 4, mole.x, mole.y-mole.r, W*0.55);
+    glow.addColorStop(0, `rgba(255,255,255,${0.12*intensity})`);
+    glow.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0,0,W,H);
+    ctx.restore();
+  }
+
   function render(){
     drawBackgroundSky(); drawHills();
     for (const o of obstacles) drawObstacle(o);
@@ -714,6 +751,7 @@
     drawGround();
     drawParticles();
     drawMole();
+    drawSpeedLines();
     drawItemBar();
     drawSpeedo();
   }
