@@ -187,16 +187,35 @@
   const STAR_DECAY_KMH_S = 67; // ~3s to unwind from 500 back down to 300
   const FEATHER_BOOST_MS = 2200; // feather: shorter pull toward BOOST_CEILING
   const MAX_DJ_CHARGES = 3;
-  const MAX_ITEM_SPAWNS = 3;   // at most 3 of each item type ever appear in a run
+  const ITEM_SPAWN_COUNT = 3;      // each item type appears exactly this many times per run
+  const STAR_MIN_GAP_MS = 6000;    // star effect is 3s boost + ~3s decay, so space them out
+  const FEATHER_MIN_GAP_MS = 4000;
   const INVINCIBLE_MS = 3000;
   const RUN_TIME_MS = 60000;
+  const ITEM_SCHEDULE_END_MS = RUN_TIME_MS - 10000; // guarantee all appear with 10s to spare
 
   let mole, obstacles, items, hills, clouds, speedKmh, distanceKm, lives, invuln;
-  let obsTimer, nextObsIn, itemTimer, nextItemIn;
+  let obsTimer, nextObsIn;
   let djCharges, djSpawnedCount, starSpawnedCount, invincibleMs, boostMs, extraJumpUsed;
+  let starSchedule, featherSchedule, nextStarIdx, nextFeatherIdx;
   let particles;
   let pendingGameOver, gameOverDelay;
   let timeLeftMs, pendingFinish, finishDelay;
+
+  function buildSpawnSchedule(count, minGap, windowEnd, startMin){
+    const times = [];
+    let prev = startMin - minGap;
+    for (let i = 0; i < count; i++) {
+      const remaining = count - i;
+      const latestAllowed = windowEnd - (remaining - 1) * minGap;
+      const earliest = Math.max(startMin, prev + minGap);
+      const span = Math.max(0, latestAllowed - earliest);
+      const t = earliest + Math.random() * span;
+      times.push(t);
+      prev = t;
+    }
+    return times;
+  }
 
   function resetWorld(){
     mole = { x: 90, y: GROUND_Y, vy: 0, r: 20, grounded: true, squash: 0, rot:0 };
@@ -205,8 +224,10 @@
     clouds = [ {x:60,y:40,s:1}, {x:260,y:70,s:0.7}, {x:400,y:30,s:1.2} ];
     speedKmh = 0; distanceKm = 0; lives = 3; invuln = 0;
     obsTimer = 0; nextObsIn = 1300;
-    itemTimer = 0; nextItemIn = 5500;
     djCharges = 0; djSpawnedCount = 0; starSpawnedCount = 0; invincibleMs = 0; boostMs = 0; extraJumpUsed = false;
+    starSchedule = buildSpawnSchedule(ITEM_SPAWN_COUNT, STAR_MIN_GAP_MS, ITEM_SCHEDULE_END_MS, 4000);
+    featherSchedule = buildSpawnSchedule(ITEM_SPAWN_COUNT, FEATHER_MIN_GAP_MS, ITEM_SCHEDULE_END_MS, 1500);
+    nextStarIdx = 0; nextFeatherIdx = 0;
     pendingGameOver = false; gameOverDelay = 0;
     timeLeftMs = RUN_TIME_MS; pendingFinish = false; finishDelay = 0;
     distVal.textContent = '0';
@@ -266,16 +287,20 @@
     return true;
   }
 
-  function spawnItem(){
-    if (!spawnXIsClear(W+20)) return; // avoid landing on top of an obstacle / pit — try again next timer tick
-    const st = stageOf((RUN_TIME_MS - timeLeftMs)/1000);
-    const options = [];
-    if (st >= 3 && djSpawnedCount < MAX_ITEM_SPAWNS) options.push('dj');
-    if (st >= 4 && starSpawnedCount < MAX_ITEM_SPAWNS) options.push('star');
-    if (!options.length) return;
-    const type = options[Math.floor(Math.random()*options.length)];
-    if (type === 'dj') djSpawnedCount++; else starSpawnedCount++;
+  function spawnItemOfType(type){
+    if (!spawnXIsClear(W+20)) return false; // wait for a clear spot, retry will happen next frame
     items.push({ type, x:W+20, y:GROUND_Y-30, r:14, bob:Math.random()*10, taken:false, sparkleTimer:0 });
+    if (type === 'dj') djSpawnedCount++; else starSpawnedCount++;
+    return true;
+  }
+
+  function checkScheduledItems(elapsedMs){
+    if (nextStarIdx < starSchedule.length && elapsedMs >= starSchedule[nextStarIdx]) {
+      if (spawnItemOfType('star')) nextStarIdx++;
+    }
+    if (nextFeatherIdx < featherSchedule.length && elapsedMs >= featherSchedule[nextFeatherIdx]) {
+      if (spawnItemOfType('dj')) nextFeatherIdx++;
+    }
   }
 
   function doJump(){
@@ -407,11 +432,7 @@
       }
     }
 
-    itemTimer += dt;
-    if (itemTimer >= nextItemIn) {
-      itemTimer = 0; nextItemIn = 6000 + Math.random()*4000;
-      spawnItem();
-    }
+    checkScheduledItems(RUN_TIME_MS - timeLeftMs);
 
     const dx = (speedKmh * PX_PER_KMH) * (dt/1000);
     for (const o of obstacles) {
